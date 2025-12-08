@@ -1,14 +1,16 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { UserData, UserStats, DailyQuest } from '../types';
 import { useAuth } from './AuthContext';
+import { db } from '../firebaseConfig';
+import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 
 interface UserDataContextType {
   userData: UserData | null;
   setUserData: React.Dispatch<React.SetStateAction<UserData | null>>;
-  updateUserData: (data: Partial<UserData>) => void;
+  updateUserData: (data: Partial<UserData>) => Promise<void>;
   loading: boolean;
   completeQuest: (questId: 'read_quotes' | 'like_quote' | 'share_quote') => { leveledUp: boolean; newLevel: number } | null;
+  initializeUser: (initialData: Partial<UserData>) => Promise<void>;
 }
 
 const UserDataContext = createContext<UserDataContextType | undefined>(undefined);
@@ -19,7 +21,7 @@ const INITIAL_QUESTS: DailyQuest[] = [
     { id: 'share_quote', title: 'Mensageiro', description: 'Compartilhe sabedoria', target: 1, current: 0, xpReward: 100, completed: false, icon: 'ios_share' },
 ];
 
-const initialUserData: UserData = {
+const initialUserDataTemplate: UserData = {
     onboardingComplete: false,
     isPremium: false, 
     subscriptionExpiry: '',
@@ -49,144 +51,137 @@ const initialUserData: UserData = {
     }
 };
 
-// Moved outside component to be stable
 const calculateLevel = (xp: number) => {
-    // Simple scaling: Level = 1 + sqrt(XP / 100)
     return Math.floor(1 + Math.sqrt((xp || 0) / 100));
 };
 
 export const UserDataProvider: React.FC<{children: ReactNode}> = ({ children }) => {
-  const { isAuthenticated, userEmail } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const storageKey = userEmail ? `inspiraUserData-${userEmail}` : null;
-
+  // Listen to Real-time Firestore updates
   useEffect(() => {
-    if (!isAuthenticated || !storageKey) {
+    if (!isAuthenticated || !currentUser) {
       setUserData(null);
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    try {
-      const savedData = localStorage.getItem(storageKey);
-      if (savedData) {
-        const parsedData = JSON.parse(savedData);
-        
-        // Subscription Check Logic
-        let isPremium = parsedData.isPremium || false;
-        
-        // If premium, check expiry date
-        if (isPremium && parsedData.subscriptionExpiry) {
-            const expiry = new Date(parsedData.subscriptionExpiry);
-            const now = new Date();
-            // If expiry date is in the past, revoke premium
-            if (now > expiry) {
-                isPremium = false; 
+    const userDocRef = doc(db, "users", currentUser.uid);
+
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const remoteData = docSnap.data() as UserData;
+            
+            // Check Daily Reset Logic logic locally and update if needed
+            const today = new Date().toISOString().split('T')[0];
+            let needsUpdate = false;
+            let updatedStats = { ...remoteData.stats };
+
+            // Initialize stats if missing (migration safety)
+            if (!updatedStats.quests) {
+                updatedStats = { ...initialUserDataTemplate.stats, lastLoginDate: today };
+                needsUpdate = true;
             }
+
+            if (updatedStats.lastLoginDate !== today) {
+                // Reset Quests
+                updatedStats.quests = INITIAL_QUESTS.map(q => ({...q}));
+                
+                // Handle Streak
+                if (updatedStats.lastLoginDate) {
+                    const lastLogin = new Date(updatedStats.lastLoginDate);
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+                    if (updatedStats.lastLoginDate === yesterdayStr) {
+                        updatedStats.currentStreak = (updatedStats.currentStreak || 0) + 1;
+                    } else {
+                        updatedStats.currentStreak = 1;
+                    }
+                } else {
+                    updatedStats.currentStreak = 1;
+                }
+                updatedStats.lastLoginDate = today;
+                needsUpdate = true;
+            }
+
+            // Subscription Check
+            let isPremium = remoteData.isPremium || false;
+            if (isPremium && remoteData.subscriptionExpiry) {
+                const expiry = new Date(remoteData.subscriptionExpiry);
+                const now = new Date();
+                if (now > expiry) {
+                    isPremium = false;
+                    needsUpdate = true;
+                }
+            }
+
+            if (needsUpdate) {
+                // Update Firestore with the daily reset
+                updateDoc(userDocRef, { stats: updatedStats, isPremium: isPremium }).catch(console.error);
+                // The snapshot listener will fire again with the new data
+            } else {
+                setUserData({ ...remoteData, isPremium });
+            }
+        } else {
+            // Document doesn't exist yet (handled by initializeUser explicitly usually, but good to handle empty state)
+            setUserData(null);
         }
-
-        // Merge with initialUserData to ensure new fields (like stats) are present for existing users
-        const mergedData = { 
-            ...initialUserData, 
-            ...parsedData,
-            isPremium: isPremium,
-            stats: { ...initialUserData.stats, ...(parsedData.stats || {}) } 
-        };
-        
-        // SMART QUEST MERGE: 
-        const existingQuests = Array.isArray(mergedData.stats.quests) ? mergedData.stats.quests : [];
-        
-        mergedData.stats.quests = INITIAL_QUESTS.map(initialQuest => {
-            const existingQuest = existingQuests.find((q: DailyQuest) => q.id === initialQuest.id);
-            if (existingQuest) {
-                return {
-                    ...initialQuest, // Use new definition (New Icon, Title, XP)
-                    current: existingQuest.current || 0, // Keep Progress
-                    completed: !!existingQuest.completed // Keep Completion status
-                };
-            }
-            return { ...initialQuest }; // Return a copy
-        });
-
-        // Check Daily Reset Logic
-        const today = new Date().toISOString().split('T')[0];
-        if (mergedData.stats.lastLoginDate !== today) {
-             // Reset Quests if it's a new day
-             mergedData.stats.quests = INITIAL_QUESTS.map(q => ({...q}));
-             
-             // Handle Streak
-             if (mergedData.stats.lastLoginDate) {
-                 const lastLogin = new Date(mergedData.stats.lastLoginDate);
-                 const yesterday = new Date();
-                 yesterday.setDate(yesterday.getDate() - 1);
-                 const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-                 if (mergedData.stats.lastLoginDate === yesterdayStr) {
-                     mergedData.stats.currentStreak = (mergedData.stats.currentStreak || 0) + 1;
-                 } else {
-                     // Missed a day
-                     mergedData.stats.currentStreak = 1; 
-                 }
-             } else {
-                 // First login ever recorded
-                 mergedData.stats.currentStreak = 1;
-             }
-             
-             mergedData.stats.lastLoginDate = today;
-        }
-
-        setUserData(mergedData);
-      } else {
-        const today = new Date().toISOString().split('T')[0];
-        const newUser = {
-            ...initialUserData,
-            isPremium: false,
-            stats: { 
-                ...initialUserData.stats, 
-                lastLoginDate: today, 
-                currentStreak: 1,
-                quests: INITIAL_QUESTS.map(q => ({...q})) // Ensure copy
-            }
-        };
-        setUserData(newUser);
-      }
-    } catch (error) {
-      console.error("Failed to load user data from localStorage", error);
-      // Fallback safe init
-      const today = new Date().toISOString().split('T')[0];
-      setUserData({
-          ...initialUserData,
-          stats: { ...initialUserData.stats, lastLoginDate: today, quests: INITIAL_QUESTS.map(q => ({...q})) }
-      });
-    } finally {
         setLoading(false);
-    }
-  }, [isAuthenticated, storageKey]);
+    }, (error) => {
+        console.error("Firestore sync error:", error);
+        setLoading(false);
+    });
 
-  useEffect(() => {
-    if (userData && !loading && isAuthenticated && storageKey) {
+    return () => unsubscribe();
+  }, [currentUser, isAuthenticated]);
+
+
+  const initializeUser = async (signupData: Partial<UserData>) => {
+      if (!currentUser) return;
+      
+      const today = new Date().toISOString().split('T')[0];
+      const newUser: UserData = {
+          ...initialUserDataTemplate,
+          ...signupData,
+          stats: {
+              ...initialUserDataTemplate.stats,
+              lastLoginDate: today,
+              currentStreak: 1
+          }
+      };
+
       try {
-        localStorage.setItem(storageKey, JSON.stringify(userData));
-      } catch (error) {
-        console.error("Failed to save user data to localStorage", error);
+          await setDoc(doc(db, "users", currentUser.uid), newUser);
+          setUserData(newUser);
+      } catch (e) {
+          console.error("Error initializing user in Firestore", e);
       }
-    }
-  }, [userData, loading, isAuthenticated, storageKey]);
+  };
 
-  const updateUserData = useCallback((data: Partial<UserData>) => {
-    setUserData(prev => prev ? { ...prev, ...data } : (data as UserData));
-  }, []);
+  const updateUserData = useCallback(async (data: Partial<UserData>) => {
+    if (!currentUser) return;
+    
+    // Optimistic update
+    setUserData(prev => prev ? { ...prev, ...data } : null);
+
+    try {
+        const userDocRef = doc(db, "users", currentUser.uid);
+        await setDoc(userDocRef, data, { merge: true });
+    } catch (e) {
+        console.error("Error updating user data:", e);
+        // Could revert state here if critical
+    }
+  }, [currentUser]);
 
   const completeQuest = useCallback((questId: 'read_quotes' | 'like_quote' | 'share_quote') => {
-      if (!userData || !userData.stats) return null;
+      if (!userData || !userData.stats || !currentUser) return null;
 
-      // 1. Calculate new state SYNCHRONOUSLY based on current userData
       const currentStats = userData.stats;
-      
-      // Deep clone quests array to avoid mutation
       const newQuests = currentStats.quests ? currentStats.quests.map(q => ({ ...q })) : [];
       
       const newStats: UserStats = {
@@ -195,11 +190,8 @@ export const UserDataProvider: React.FC<{children: ReactNode}> = ({ children }) 
           totalQuotesRead: currentStats.totalQuotesRead || 0,
           totalLikes: currentStats.totalLikes || 0,
           totalShares: currentStats.totalShares || 0,
-          xp: currentStats.xp || 0,
-          level: currentStats.level || 1
       };
 
-      // Update Totals
       if (questId === 'read_quotes') newStats.totalQuotesRead += 1;
       if (questId === 'like_quote') newStats.totalLikes += 1;
       if (questId === 'share_quote') newStats.totalShares += 1;
@@ -207,19 +199,15 @@ export const UserDataProvider: React.FC<{children: ReactNode}> = ({ children }) 
       let leveledUp = false;
       let newLevelVal = newStats.level;
 
-      // Update Quest Progress
       const questIndex = newStats.quests.findIndex(q => q.id === questId);
       if (questIndex !== -1) {
           const quest = newStats.quests[questIndex];
-          
           if (!quest.completed) {
               quest.current = (quest.current || 0) + 1;
               if (quest.current >= quest.target) {
                   quest.completed = true;
-                  // Award XP
                   newStats.xp += quest.xpReward;
                   
-                  // Check Level Up
                   const calculatedLevel = calculateLevel(newStats.xp);
                   if (calculatedLevel > newStats.level) {
                       newStats.level = calculatedLevel;
@@ -230,16 +218,14 @@ export const UserDataProvider: React.FC<{children: ReactNode}> = ({ children }) 
           }
       }
 
-      // 2. Update Context State
+      // Update Firestore
       updateUserData({ stats: newStats });
 
-      // 3. Return result immediately to the caller
       return leveledUp ? { leveledUp: true, newLevel: newLevelVal } : null;
-  }, [userData, updateUserData]);
-
+  }, [userData, currentUser, updateUserData]);
 
   return (
-    <UserDataContext.Provider value={{ userData, setUserData, updateUserData, loading, completeQuest }}>
+    <UserDataContext.Provider value={{ userData, setUserData, updateUserData, loading, completeQuest, initializeUser }}>
       {children}
     </UserDataContext.Provider>
   );

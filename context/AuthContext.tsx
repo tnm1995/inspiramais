@@ -1,70 +1,95 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { auth } from '../firebaseConfig';
+import { 
+    onAuthStateChanged, 
+    signInWithEmailAndPassword, 
+    createUserWithEmailAndPassword, 
+    signOut, 
+    User 
+} from 'firebase/auth';
+import { LoginFormData, SignupFormData } from '../types';
 
 interface AuthContextType {
+  currentUser: User | null;
   isAuthenticated: boolean;
   userEmail: string | null;
-  login: (email: string, remember?: boolean) => void;
-  logout: () => void;
+  login: (data: LoginFormData) => Promise<void>;
+  signup: (data: SignupFormData) => Promise<void>;
+  logout: () => Promise<void>;
   isLoading: boolean;
+  authError: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-        const localEmail = localStorage.getItem('inspiraUserEmail');
-        const sessionEmail = sessionStorage.getItem('inspiraUserEmail');
-        
-        if (localEmail) {
-            setUserEmail(localEmail);
-        } else if (sessionEmail) {
-            setUserEmail(sessionEmail);
-        }
-    } catch (error) {
-        console.error("Failed to access storage", error);
-    } finally {
-        setIsLoading(false);
-    }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setIsLoading(false);
+    });
+    return unsubscribe;
   }, []);
 
-  const login = useCallback((email: string, remember: boolean = true) => {
-    const lowercasedEmail = email.toLowerCase();
-    
-    if (remember) {
-        localStorage.setItem('inspiraUserEmail', lowercasedEmail);
-        sessionStorage.removeItem('inspiraUserEmail'); // Clear session if switching
-    } else {
-        sessionStorage.setItem('inspiraUserEmail', lowercasedEmail);
-        localStorage.removeItem('inspiraUserEmail'); // Clear local if switching
-    }
-    
-    setUserEmail(lowercasedEmail);
-  }, []);
-
-  const logout = useCallback(() => {
+  const login = async (data: LoginFormData) => {
+    setAuthError(null);
     try {
-        // Clear user-specific data but keep other settings if needed
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('inspiraUserData-') || key === 'inspiraUserEmail') {
-                localStorage.removeItem(key);
-            }
-        });
-        sessionStorage.removeItem('inspiraUserEmail');
-        setUserEmail(null);
-        // Removed window.location.reload() to allow smooth transition to login screen
+        await signInWithEmailAndPassword(auth, data.email, data.password);
+    } catch (error: any) {
+        console.error("Login error:", error);
+        let msg = "Falha ao entrar.";
+        if (error.code === 'auth/invalid-credential') msg = "E-mail ou senha incorretos.";
+        if (error.code === 'auth/user-not-found') msg = "Usuário não encontrado.";
+        if (error.code === 'auth/wrong-password') msg = "Senha incorreta.";
+        setAuthError(msg);
+        throw error;
+    }
+  };
+
+  const signup = async (data: SignupFormData) => {
+      setAuthError(null);
+      try {
+          // Create Auth User
+          await createUserWithEmailAndPassword(auth, data.email, data.password);
+          // Note: UserData creation in Firestore is handled by the UserDataContext or App logic 
+          // right after this promise resolves, or via a trigger.
+          // For this app, we will handle the Firestore document creation in the App.tsx/UserDataContext flow.
+      } catch (error: any) {
+          console.error("Signup error:", error);
+          let msg = "Falha ao criar conta.";
+          if (error.code === 'auth/email-already-in-use') msg = "Este e-mail já está em uso.";
+          if (error.code === 'auth/weak-password') msg = "A senha é muito fraca.";
+          setAuthError(msg);
+          throw error;
+      }
+  };
+
+  const logout = async () => {
+    try {
+        await signOut(auth);
     } catch (error) {
         console.error("Error during logout:", error);
     }
-  }, []);
+  };
   
-  const isAuthenticated = !!userEmail;
+  const isAuthenticated = !!currentUser;
+  const userEmail = currentUser?.email || null;
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, userEmail, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ 
+        currentUser, 
+        isAuthenticated, 
+        userEmail, 
+        login, 
+        signup, 
+        logout, 
+        isLoading,
+        authError
+    }}>
       {children}
     </AuthContext.Provider>
   );

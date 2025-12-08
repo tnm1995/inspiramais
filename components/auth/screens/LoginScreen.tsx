@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { EmailIcon, LockIcon, UserCircleIcon, PhoneIcon, SparkleIcon, ArrowRightIcon, ChevronLeftIcon, GoogleIcon, CreditCardIcon, CheckIcon, CloseIcon, WarningIcon, CogIcon } from '../../Icons';
 import { LoginFormData, SignupFormData } from '../../../types';
@@ -22,6 +21,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onB
     const [rememberMe, setRememberMe] = useState(true);
     const [isCpfValid, setIsCpfValid] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     // Success Animation State
     const [isSuccess, setIsSuccess] = useState(false);
@@ -115,46 +115,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onB
         if (errorMessage) setErrorMessage(null); // Clear error on change
     };
 
-    const checkCpfExists = (cpf: string): boolean => {
-        try {
-            const cleanCpf = cpf.replace(/\D/g, '');
-            const registry = localStorage.getItem('inspira_cpf_registry');
-            if (registry) {
-                const map = JSON.parse(registry);
-                return !!map[cleanCpf];
-            }
-        } catch (e) {
-            console.error("Error checking CPF registry", e);
-        }
-        return false;
-    };
-
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMessage(null);
+        setIsSubmitting(true);
 
-        if (activeTab === 'login') {
-            setIsSuccess(true);
-            setTimeout(() => {
-                onLogin({ email: formData.email, password: formData.password, remember: rememberMe });
-            }, 2000);
-        } else {
-            // Only allow signup if everything is valid
-            const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
-            
-            if (isPasswordValid && isCpfValid) {
-                // Check duplicate CPF
-                if (checkCpfExists(formData.cpf)) {
-                    setErrorMessage("Este CPF já está cadastrado.");
-                    return;
-                }
-
-                // Trigger Success Animation
+        try {
+            if (activeTab === 'login') {
+                await onLogin({ email: formData.email, password: formData.password, remember: rememberMe });
+                // Success is handled by prop callback usually via parent state change, but we can trigger anim here if we want
                 setIsSuccess(true);
+            } else {
+                // Only allow signup if everything is valid
+                const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
                 
-                // Wait 2 seconds before actual redirect/login
-                setTimeout(() => {
-                    onSignup({
+                if (isPasswordValid && isCpfValid) {
+                    await onSignup({
                         name: formData.name,
                         email: formData.email,
                         password: formData.password,
@@ -162,31 +138,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onB
                         cpf: formData.cpf,
                         remember: rememberMe
                     });
-                }, 2000);
+                    setIsSuccess(true);
+                }
             }
+        } catch (error) {
+            // Error handling is done via props/parent usually setting message
+            // or simply reset state here
+            setIsSubmitting(false);
         }
     };
     
     const handleGoogleLogin = () => {
-        // Simulate Google login delay for better UX
-        setTimeout(() => {
-             if (activeTab === 'login') {
-                onLogin({ email: "googleuser@gmail.com", password: "google-auth-token", remember: rememberMe });
-            } else {
-                onSignup({ 
-                    name: "Usuário Google", 
-                    email: "googleuser@gmail.com", 
-                    password: "google-auth-token",
-                    phone: "",
-                    cpf: "",
-                    remember: rememberMe
-                });
-            }
-        }, 800);
+       alert("Login com Google requer configuração adicional no Firebase Console.");
     };
 
-    const isLoginButtonDisabled = !formData.email || !formData.password;
-    const isSignupButtonDisabled = !formData.name || !formData.email || !formData.password || !isCpfValid || !formData.phone || !Object.values(passwordCriteria).every(Boolean);
+    const isLoginButtonDisabled = !formData.email || !formData.password || isSubmitting;
+    const isSignupButtonDisabled = !formData.name || !formData.email || !formData.password || !isCpfValid || !formData.phone || !Object.values(passwordCriteria).every(Boolean) || isSubmitting;
 
     const getCpfBorderClass = () => {
         if (formData.cpf.length === 0) return 'border-white/10 focus:border-violet-500/50';
@@ -231,10 +198,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onB
                                 <CheckIcon className="text-5xl text-green-500" />
                             </div>
                             <h2 className="text-3xl font-bold text-white mb-2 font-sora">
-                                {activeTab === 'login' ? 'Bem-vindo(a) de volta!' : 'Sucesso!'}
+                                {activeTab === 'login' ? 'Entrando...' : 'Sucesso!'}
                             </h2>
                             <p className="text-gray-400 mb-6 font-sans">
-                                {activeTab === 'login' ? 'Que bom te ver por aqui.' : 'Sua conta foi criada.'}
+                                {activeTab === 'login' ? 'Preparando sua inspiração diária.' : 'Sua conta foi criada.'}
                             </p>
                             <div className="flex items-center gap-2 text-violet-400 text-sm font-bold animate-pulse">
                                 <SparkleIcon />
@@ -406,8 +373,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onB
                                     disabled={activeTab === 'login' ? isLoginButtonDisabled : isSignupButtonDisabled}
                                     className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(124,58,237,0.3)] hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                                 >
-                                    <span>{activeTab === 'login' ? "Acessar App" : "Começar Agora"}</span>
-                                    <ArrowRightIcon />
+                                    {isSubmitting ? (
+                                        <span>Processando...</span>
+                                    ) : (
+                                        <>
+                                            <span>{activeTab === 'login' ? "Acessar App" : "Começar Agora"}</span>
+                                            <ArrowRightIcon />
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>

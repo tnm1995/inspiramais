@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { UserDataProvider, useUserData } from './context/UserDataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -45,13 +44,12 @@ const triggerHapticFeedback = (pattern: number | number[] = 30) => {
 };
 
 const AppContent = () => {
-    const { userData, updateUserData, loading: isUserDataLoading, completeQuest } = useUserData();
-    const { login, logout } = useAuth();
+    const { userData, updateUserData, loading: isUserDataLoading, completeQuest, initializeUser } = useUserData();
+    const { login, signup, logout, isAuthenticated, isLoading: isAuthLoading, authError } = useAuth();
     const [needsMoodCheckin, setNeedsMoodCheckin] = useState(false);
     
     // Login Flow State
     const [showLogin, setShowLogin] = useState(false);
-    // State to manage post-auth updates to avoid race conditions
     const [authAction, setAuthAction] = useState<'login' | 'signup' | null>(null);
     const [tempSignupData, setTempSignupData] = useState<SignupFormData | null>(null);
     
@@ -111,53 +109,49 @@ const AppContent = () => {
             if (now > expiryDate) return false;
         }
 
-        // If premium and valid date (or no date which implies lifetime in this simple logic, 
-        // though Admin panel sets dates), allow access.
         return true;
     }, [userData]);
 
     const isSharePage = useMemo(() => new URLSearchParams(window.location.search).get('share') === 'true', []);
 
-    // Handle Post-Auth Updates (Fix for Race Condition)
+    // Handle Authentication Errors and Feedback
     useEffect(() => {
-        // We wait until userData is loaded (isUserDataLoading is false) and we have a valid userData object
-        if (authAction && !isUserDataLoading && userData) {
+        if (authError) {
+             setToastMessage({ message: authError, type: 'error' });
+        }
+    }, [authError]);
+
+    // Handle Post-Auth Data Initialization
+    useEffect(() => {
+        // If we just signed up and are authenticated, we need to initialize user data in Firestore
+        if (authAction === 'signup' && isAuthenticated && tempSignupData && !isUserDataLoading) {
             
-            if (authAction === 'signup' && tempSignupData) {
-                // Apply signup data to the NEW context
-                updateUserData({ 
-                    name: tempSignupData.name, 
-                    onboardingComplete: true,
-                    // Note: In a real app we would save phone/cpf to backend here
-                });
-
-                // Persist CPF to local registry to prevent reuse
-                if (tempSignupData.cpf) {
-                    try {
-                        const cleanCpf = tempSignupData.cpf.replace(/\D/g, '');
-                        const registry = JSON.parse(localStorage.getItem('inspira_cpf_registry') || '{}');
-                        registry[cleanCpf] = tempSignupData.email; // Map CPF to email (simulating backend check)
-                        localStorage.setItem('inspira_cpf_registry', JSON.stringify(registry));
-                    } catch (e) {
-                        console.error("Failed to save CPF registry", e);
-                    }
-                }
-
+            // Initialize Firestore Document
+            initializeUser({
+                name: tempSignupData.name,
+                onboardingComplete: true,
+                // In real app, store phone/CPF secure hash or in a separate secure collection if needed
+                // For this demo we just initialize the basic profile
+            }).then(() => {
                 setToastMessage({ message: `Conta criada com sucesso!`, type: 'success' });
-            } else if (authAction === 'login') {
-                 // Ensure onboarding is marked complete for existing users logging in
-                 if (!userData.onboardingComplete) {
-                     updateUserData({ onboardingComplete: true });
-                 }
-                 setToastMessage({ message: `Bem-vindo(a) de volta!`, type: 'success' });
+                setAuthAction(null);
+                setTempSignupData(null);
+                setShowLogin(false);
+            });
+
+        } else if (authAction === 'login' && isAuthenticated && !isUserDataLoading) {
+            // Login successful
+            // Ensure onboarding is marked if it was missing (migration)
+            if (userData && !userData.onboardingComplete) {
+                updateUserData({ onboardingComplete: true });
             }
             
-            // Reset states and close login screen ONLY when data is ready
+            setToastMessage({ message: `Bem-vindo(a) de volta!`, type: 'success' });
             setAuthAction(null);
-            setTempSignupData(null);
             setShowLogin(false);
         }
-    }, [authAction, isUserDataLoading, userData, updateUserData, tempSignupData]);
+    }, [authAction, isAuthenticated, isUserDataLoading, tempSignupData, initializeUser, userData, updateUserData]);
+
 
     // Fetch Daily Motivation (Restored)
     useEffect(() => {
@@ -390,7 +384,6 @@ const AppContent = () => {
     };
 
     const handleExplore = (quote: Quote) => {
-        // Since we gate access at App level, everyone here is allowed
         setExploringQuote(quote);
     };
 
@@ -457,17 +450,24 @@ const AppContent = () => {
         setShowPremiumCheckout(true);
     };
 
-    // Login Handling - Updated to fix race condition
-    // We DO NOT close showLogin here. We wait for userData to load in useEffect.
-    const handleLoginSubmit = (data: LoginFormData) => {
+    // Login Handling - Connecting to Auth Context
+    const handleLoginSubmit = async (data: LoginFormData) => {
         setAuthAction('login');
-        login(data.email, data.remember);
+        try {
+            await login(data);
+        } catch (e) {
+            setAuthAction(null);
+        }
     };
 
-    const handleSignupSubmit = (data: SignupFormData) => {
+    const handleSignupSubmit = async (data: SignupFormData) => {
         setTempSignupData(data); // Store data to apply after context switch
         setAuthAction('signup');
-        login(data.email, data.remember);
+        try {
+            await signup(data);
+        } catch (e) {
+            setAuthAction(null);
+        }
     };
 
     const handleLogout = useCallback(() => {
@@ -493,7 +493,8 @@ const AppContent = () => {
         }
     }, [isOnboarded]);
     
-    if (isUserDataLoading) {
+    // Loading State
+    if (isUserDataLoading || isAuthLoading) {
         return <div className="h-full w-full flex items-center justify-center bg-black text-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500"></div></div>;
     }
 
@@ -519,8 +520,9 @@ const AppContent = () => {
         );
     }
 
-    // Bypass onboarding check if we are in the middle of a signup action to prevent flash of landing page
-    if (!isOnboarded && authAction !== 'signup') return (
+    // If we are authenticated but user data is somehow missing or not loaded yet, wait or show loading
+    // But if not authenticated, start onboarding
+    if (!isAuthenticated) return (
         <>
             <OnboardingFlow 
                 onLoginClick={() => setShowLogin(true)} 
@@ -531,10 +533,12 @@ const AppContent = () => {
             {showPrivacy && <PrivacyScreen onClose={() => setShowPrivacy(false)} />}
         </>
     );
+    
+    // Fallback: Authenticated but no user data? (Should be handled by loading state, but safe guard)
+    if (!userData) return <div className="h-full w-full bg-black"></div>;
 
-    // BLOCKING EXPIRED SCREEN - The Gatekeeper
-    // If user has completed onboarding BUT does not have active access (No premium or Expired)
-    // AND is not currently trying to buy.
+
+    // 1. BLOCKING EXPIRED SCREEN - The Gatekeeper
     if (!hasActiveAccess && !showPremiumCheckout) {
         return (
             <SubscriptionExpiredScreen 
@@ -544,7 +548,21 @@ const AppContent = () => {
         );
     }
 
-    if (needsMoodCheckin && !showPremiumCheckout) {
+    // 2. CHECKOUT SCREEN
+    if (showPremiumCheckout) {
+        return (
+            <Suspense fallback={<div className="fixed inset-0 bg-black z-50"></div>}>
+                <PremiumCheckoutScreen 
+                    onBack={handleHidePremiumCheckout} 
+                    onPurchaseComplete={handlePurchaseComplete} 
+                    isClosing={isPremiumCheckoutClosing} 
+                />
+            </Suspense>
+        );
+    }
+
+    // 3. Mood Checkin
+    if (needsMoodCheckin) {
         return (
             <MoodCheckinScreen onComplete={handleMoodCheckinComplete} />
         );
@@ -552,7 +570,7 @@ const AppContent = () => {
 
     return (
         <main className="relative h-full w-full bg-black text-gray-50 font-sans overflow-hidden" role="main">
-             <div className={`w-full h-full transition-all duration-500 ease-in-out ${showProfile || showFilterModal || exploringQuote || showDailyMotivation || showPremiumCheckout || showShareModal || showGamification ? 'scale-95 brightness-75' : 'scale-100 brightness-100'}`}>
+             <div className={`w-full h-full transition-all duration-500 ease-in-out ${showProfile || showFilterModal || exploringQuote || showDailyMotivation || showShareModal || showGamification ? 'scale-95 brightness-75' : 'scale-100 brightness-100'}`}>
                 <QuoteFeed 
                     quotes={quotes}
                     isLoading={isLoading}
@@ -570,7 +588,6 @@ const AppContent = () => {
                         {isDailyMotivationLoading ? (
                             <div className="h-10 w-10 bg-white/50 rounded-full animate-pulse shadow-md" aria-hidden="true"></div>
                         ) : (
-                            // Header Button: Sun Icon for Daily Motivation
                             <button 
                                 onClick={() => setShowDailyMotivation(true)}
                                 className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center transform active:scale-95"
@@ -670,8 +687,6 @@ const AppContent = () => {
                         onShowPrivacy={() => setShowPrivacy(true)}
                     />
                 )}
-
-                {showPremiumCheckout && <PremiumCheckoutScreen onBack={handleHidePremiumCheckout} onPurchaseComplete={handlePurchaseComplete} isClosing={isPremiumCheckoutClosing} />}
 
                 {showShareModal && quoteForShareModal && (
                     <ShareModal

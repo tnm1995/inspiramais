@@ -1,7 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { CloseIcon, UserCircleIcon, CrownIcon } from '../Icons';
 import { UserData } from '../../types';
+import { db } from '../../firebaseConfig';
+import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 
 interface AdminPanelProps {
     onClose: () => void;
@@ -9,7 +11,8 @@ interface AdminPanelProps {
 }
 
 interface AdminUser {
-    email: string;
+    id: string; // Firebase UID
+    email?: string; // Stored in the document for easy access or need to fetch from Auth (complicated in client SDK). We assume email is saved in UserData for simplicity or we iterate.
     data: UserData;
 }
 
@@ -17,9 +20,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     
     // Create User Form State
     const [newUserEmail, setNewUserEmail] = useState('');
+    const [newUserPassword, setNewUserPassword] = useState('');
     const [newUserName, setNewUserName] = useState('');
     const [newUserPremium, setNewUserPremium] = useState(false);
 
@@ -27,30 +32,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         loadUsers();
     }, []);
 
-    const loadUsers = () => {
-        const loadedUsers: AdminUser[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('inspiraUserData-')) {
-                const email = key.replace('inspiraUserData-', '');
-                try {
-                    const data = JSON.parse(localStorage.getItem(key) || '{}');
-                    loadedUsers.push({ email, data });
-                } catch (e) {
-                    console.error("Error loading user", email);
-                }
-            }
+    const loadUsers = async () => {
+        setIsLoading(true);
+        try {
+            const querySnapshot = await getDocs(collection(db, "users"));
+            const loadedUsers: AdminUser[] = [];
+            querySnapshot.forEach((doc) => {
+                const data = doc.data() as UserData;
+                // Note: Email is not strictly in UserData interface usually, but useful to store there for Admin display if Auth list isn't accessible.
+                // For this implementation, we rely on 'name' mainly, or if you saved email in UserData.
+                loadedUsers.push({ id: doc.id, email: (data as any).email || 'No Email', data });
+            });
+            setUsers(loadedUsers);
+        } catch (error) {
+            console.error("Error loading users:", error);
+            setToastMessage({ message: "Erro ao carregar usuários.", type: 'error' });
+        } finally {
+            setIsLoading(false);
         }
-        setUsers(loadedUsers);
     };
 
-    const handleRenew = (email: string, type: 'month' | 'year') => {
-        const userIndex = users.findIndex(u => u.email === email);
-        if (userIndex === -1) return;
+    const handleRenew = async (userId: string, type: 'month' | 'year') => {
+        const user = users.find(u => u.id === userId);
+        if (!user) return;
 
-        const user = users[userIndex];
         const now = new Date();
-        // If already future, add to it, else start from now
         const currentExpiry = user.data.subscriptionExpiry ? new Date(user.data.subscriptionExpiry) : new Date();
         const startDate = currentExpiry > now ? currentExpiry : now;
         
@@ -61,91 +67,93 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             newExpiry.setFullYear(newExpiry.getFullYear() + 1);
         }
 
-        const updatedData: UserData = {
-            ...user.data,
-            isPremium: true,
-            subscriptionExpiry: newExpiry.toISOString()
-        };
-
-        localStorage.setItem(`inspiraUserData-${email}`, JSON.stringify(updatedData));
-        setToastMessage({ message: `Assinatura de ${email} renovada!`, type: 'success' });
-        loadUsers();
-    };
-
-    const handleCancel = (email: string) => {
-        const userIndex = users.findIndex(u => u.email === email);
-        if (userIndex === -1) return;
-
-        const user = users[userIndex];
-        const updatedData: UserData = {
-            ...user.data,
-            isPremium: false,
-            subscriptionExpiry: undefined
-        };
-
-        localStorage.setItem(`inspiraUserData-${email}`, JSON.stringify(updatedData));
-        setToastMessage({ message: `Assinatura de ${email} cancelada.`, type: 'success' });
-        loadUsers();
-    };
-
-    const handleDelete = (email: string) => {
-        if (window.confirm(`Tem certeza que deseja excluir o usuário ${email}?`)) {
-            localStorage.removeItem(`inspiraUserData-${email}`);
-            
-            // Also clean up CPF registry if exists
-            const registry = JSON.parse(localStorage.getItem('inspira_cpf_registry') || '{}');
-            const cpfToDelete = Object.keys(registry).find(key => registry[key] === email);
-            if (cpfToDelete) {
-                delete registry[cpfToDelete];
-                localStorage.setItem('inspira_cpf_registry', JSON.stringify(registry));
-            }
-
-            setToastMessage({ message: `Usuário ${email} excluído.`, type: 'success' });
+        try {
+            await updateDoc(doc(db, "users", userId), {
+                isPremium: true,
+                subscriptionExpiry: newExpiry.toISOString()
+            });
+            setToastMessage({ message: `Assinatura renovada!`, type: 'success' });
             loadUsers();
+        } catch (e) {
+            setToastMessage({ message: "Erro ao atualizar.", type: 'error' });
         }
     };
 
-    const handleCreateUser = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newUserEmail || !newUserName) return;
-
-        const key = `inspiraUserData-${newUserEmail.toLowerCase()}`;
-        if (localStorage.getItem(key)) {
-            setToastMessage({ message: 'Usuário já existe!', type: 'error' });
-            return;
+    const handleCancel = async (userId: string) => {
+        try {
+            await updateDoc(doc(db, "users", userId), {
+                isPremium: false,
+                subscriptionExpiry: ''
+            });
+            setToastMessage({ message: `Assinatura cancelada.`, type: 'success' });
+            loadUsers();
+        } catch (e) {
+            setToastMessage({ message: "Erro ao cancelar.", type: 'error' });
         }
+    };
 
-        const today = new Date().toISOString().split('T')[0];
-        const expiryDate = new Date();
-        expiryDate.setMonth(expiryDate.getMonth() + 1); // Default 1 month if premium
+    const handleDelete = async (userId: string) => {
+        if (window.confirm(`Tem certeza? Isso apaga os dados do banco, mas a conta de autenticação permanece (limitação do SDK cliente).`)) {
+            try {
+                await deleteDoc(doc(db, "users", userId));
+                setToastMessage({ message: `Dados do usuário excluídos.`, type: 'success' });
+                loadUsers();
+            } catch (e) {
+                setToastMessage({ message: "Erro ao excluir.", type: 'error' });
+            }
+        }
+    };
 
-        const newUser: UserData = {
-            onboardingComplete: true,
-            isPremium: newUserPremium,
-            subscriptionExpiry: newUserPremium ? expiryDate.toISOString() : undefined,
-            name: newUserName,
-            stats: {
-                xp: 0,
-                level: 1,
-                currentStreak: 1,
-                lastLoginDate: today,
-                quests: [],
-                totalQuotesRead: 0,
-                totalShares: 0,
-                totalLikes: 0
-            },
-            improvementAreas: [],
-            appGoals: [],
-            topics: []
-        };
+    // Note: Creating a user via Admin SDK requires a Firebase Function or switching Auth context. 
+    // In client SDK, creating a user logs you in as that user.
+    // For this prototype, we will warn the admin.
+    const handleCreateUser = async (e: React.FormEvent) => {
+        e.preventDefault();
+        alert("Atenção: Criar um usuário aqui fará o logout da sua conta de admin atual, pois o Firebase Auth Client SDK apenas suporta um usuário ativo por vez. Você terá que relogar como admin depois.");
+        
+        if (!newUserEmail || !newUserName || !newUserPassword) return;
 
-        localStorage.setItem(key, JSON.stringify(newUser));
-        setToastMessage({ message: 'Usuário criado com sucesso!', type: 'success' });
-        setShowCreateModal(false);
-        setNewUserEmail('');
-        setNewUserName('');
-        setNewUserPremium(false);
-        loadUsers();
+        try {
+            // This logs out the admin and logs in the new user
+            const userCredential = await createUserWithEmailAndPassword(getAuth(), newUserEmail, newUserPassword);
+            const user = userCredential.user;
+
+            const today = new Date().toISOString().split('T')[0];
+            const expiryDate = new Date();
+            expiryDate.setMonth(expiryDate.getMonth() + 1);
+
+            const newUser: UserData = {
+                onboardingComplete: true,
+                isPremium: newUserPremium,
+                subscriptionExpiry: newUserPremium ? expiryDate.toISOString() : undefined,
+                name: newUserName,
+                // @ts-ignore - storing email for admin usage
+                email: newUserEmail, 
+                stats: {
+                    xp: 0,
+                    level: 1,
+                    currentStreak: 1,
+                    lastLoginDate: today,
+                    quests: [],
+                    totalQuotesRead: 0,
+                    totalShares: 0,
+                    totalLikes: 0
+                },
+                improvementAreas: [],
+                appGoals: [],
+                topics: []
+            };
+
+            await setDoc(doc(db, "users", user.uid), newUser);
+            
+            // Because we are now logged in as the new user, we essentially reload the app flow.
+            // In a real admin panel, this logic belongs in a Cloud Function.
+            window.location.reload(); 
+
+        } catch (error: any) {
+            console.error(error);
+            setToastMessage({ message: `Erro: ${error.message}`, type: 'error' });
+        }
     };
 
     const formatDate = (dateString?: string) => {
@@ -154,7 +162,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     };
 
     const filteredUsers = users.filter(u => 
-        u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) || 
         (u.data.name && u.data.name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
@@ -166,7 +174,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                     <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center">
                         <UserCircleIcon className="text-2xl text-white" />
                     </div>
-                    <h1 className="text-xl font-bold font-serif">Administração Inspira+</h1>
+                    <h1 className="text-xl font-bold font-serif">Admin (Firebase)</h1>
                 </div>
                 <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
                     <CloseIcon className="text-xl" />
@@ -180,7 +188,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                 <div className="flex flex-col md:flex-row justify-between gap-4 mb-8">
                     <input 
                         type="text" 
-                        placeholder="Buscar por nome ou e-mail..." 
+                        placeholder="Buscar..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 w-full md:w-96"
@@ -193,13 +201,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                     </button>
                 </div>
 
+                {isLoading && <div className="text-center py-4">Carregando dados do Firestore...</div>}
+
                 {/* Users List */}
                 <div className="space-y-4">
-                    {filteredUsers.length === 0 ? (
+                    {!isLoading && filteredUsers.length === 0 ? (
                         <div className="text-center text-gray-500 py-10">Nenhum usuário encontrado.</div>
                     ) : (
                         filteredUsers.map((user) => (
-                            <div key={user.email} className="bg-[#111] border border-white/5 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:border-white/10 transition-colors">
+                            <div key={user.id} className="bg-[#111] border border-white/5 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:border-white/10 transition-colors">
                                 
                                 {/* User Info */}
                                 <div className="flex items-center gap-4 min-w-[250px]">
@@ -211,7 +221,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                                             {user.data.name || 'Sem nome'}
                                             {user.data.isPremium && <CrownIcon className="text-amber-500 text-xs" />}
                                         </h3>
-                                        <p className="text-sm text-gray-400">{user.email}</p>
+                                        <p className="text-sm text-gray-400">{user.email || user.id}</p>
                                     </div>
                                 </div>
 
@@ -232,7 +242,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                                 <div className="flex flex-wrap items-center gap-2">
                                     <div className="flex items-center bg-black/30 rounded-lg p-1 border border-white/5">
                                         <button 
-                                            onClick={() => handleRenew(user.email, 'month')}
+                                            onClick={() => handleRenew(user.id, 'month')}
                                             className="px-3 py-2 text-xs font-bold text-green-400 hover:bg-green-500/10 rounded-md transition-colors"
                                             title="Adicionar 1 Mês"
                                         >
@@ -240,7 +250,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                                         </button>
                                         <div className="w-px h-4 bg-white/10 mx-1"></div>
                                         <button 
-                                            onClick={() => handleRenew(user.email, 'year')}
+                                            onClick={() => handleRenew(user.id, 'year')}
                                             className="px-3 py-2 text-xs font-bold text-green-400 hover:bg-green-500/10 rounded-md transition-colors"
                                             title="Adicionar 1 Ano"
                                         >
@@ -250,7 +260,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
 
                                     {user.data.isPremium && (
                                         <button 
-                                            onClick={() => handleCancel(user.email)}
+                                            onClick={() => handleCancel(user.id)}
                                             className="px-4 py-2 text-xs font-bold text-amber-500 hover:bg-amber-500/10 rounded-lg border border-amber-500/30 transition-colors"
                                         >
                                             Cancelar
@@ -258,7 +268,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                                     )}
 
                                     <button 
-                                        onClick={() => handleDelete(user.email)}
+                                        onClick={() => handleDelete(user.id)}
                                         className="px-4 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-lg border border-red-500/30 transition-colors ml-2"
                                     >
                                         Excluir
@@ -293,6 +303,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                                 />
                             </div>
                             <div>
+                                <label className="block text-sm text-gray-400 mb-1">Senha</label>
+                                <input 
+                                    type="password" 
+                                    required
+                                    value={newUserPassword}
+                                    onChange={e => setNewUserPassword(e.target.value)}
+                                    className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-sm text-gray-400 mb-1">Nome</label>
                                 <input 
                                     type="text" 
@@ -319,7 +339,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                                 type="submit" 
                                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors mt-4"
                             >
-                                Criar Conta
+                                Criar Conta (Fará Logout do Admin)
                             </button>
                         </form>
                     </div>
