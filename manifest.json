@@ -1,0 +1,23 @@
+{
+    "name": "Inspira+",
+    "short_name": "Inspira+",
+    "description": "Inspiração diária e motivação personalizada.",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#11032a",
+    "theme_color": "#4f46e5",
+    "icons": [
+      {
+        "src": "/vite.svg",
+        "sizes": "192x192",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/vite.svg",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "maskable"
+      }
+    ]
+}
