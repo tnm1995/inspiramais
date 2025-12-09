@@ -12,7 +12,7 @@ export const LoginFlow: React.FC = () => {
     const handleLogin = (data: LoginFormData) => {
         console.log('Logging in with:', data.email);
         // For this mock, we just log in without checking the password.
-        login(data.email);
+        login(data);
     };
 
     const handleSignup = (data: SignupFormData) => {
@@ -20,7 +20,7 @@ export const LoginFlow: React.FC = () => {
         // Pre-fill user data with the name from signup
         updateUserData({ name: data.name });
         // Then, log the new user in.
-        login(data.email);
+        login(data);
     };
 
     return (

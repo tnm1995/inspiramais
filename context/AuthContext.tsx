@@ -5,7 +5,10 @@ import {
     signInWithEmailAndPassword, 
     createUserWithEmailAndPassword, 
     signOut, 
-    User 
+    User,
+    GoogleAuthProvider,
+    signInWithPopup,
+    UserCredential
 } from 'firebase/auth';
 import { LoginFormData, SignupFormData } from '../types';
 
@@ -15,6 +18,7 @@ interface AuthContextType {
   userEmail: string | null;
   login: (data: LoginFormData) => Promise<void>;
   signup: (data: SignupFormData) => Promise<void>;
+  loginWithGoogle: () => Promise<UserCredential>;
   logout: () => Promise<void>;
   isLoading: boolean;
   authError: string | null;
@@ -57,7 +61,6 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
           await createUserWithEmailAndPassword(auth, data.email, data.password);
           // Note: UserData creation in Firestore is handled by the UserDataContext or App logic 
           // right after this promise resolves, or via a trigger.
-          // For this app, we will handle the Firestore document creation in the App.tsx/UserDataContext flow.
       } catch (error: any) {
           console.error("Signup error:", error);
           let msg = "Falha ao criar conta.";
@@ -66,6 +69,21 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
           setAuthError(msg);
           throw error;
       }
+  };
+
+  const loginWithGoogle = async () => {
+    setAuthError(null);
+    const provider = new GoogleAuthProvider();
+    try {
+        const result = await signInWithPopup(auth, provider);
+        return result;
+    } catch (error: any) {
+        console.error("Google login error:", error);
+        let msg = "Falha ao entrar com Google.";
+        if (error.code === 'auth/popup-closed-by-user') msg = "Login cancelado.";
+        setAuthError(msg);
+        throw error;
+    }
   };
 
   const logout = async () => {
@@ -86,6 +104,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
         userEmail, 
         login, 
         signup, 
+        loginWithGoogle,
         logout, 
         isLoading,
         authError

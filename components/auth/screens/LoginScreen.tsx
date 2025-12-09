@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { EmailIcon, LockIcon, UserCircleIcon, PhoneIcon, SparkleIcon, ArrowRightIcon, ChevronLeftIcon, GoogleIcon, CreditCardIcon, CheckIcon, CloseIcon, WarningIcon, CogIcon } from '../../Icons';
 import { LoginFormData, SignupFormData } from '../../../types';
@@ -7,11 +6,12 @@ import { usePageTracking } from '../../../hooks/usePageTracking';
 interface LoginScreenProps {
     onLogin: (data: LoginFormData) => void;
     onSignup: (data: SignupFormData) => void;
+    onGoogleLogin?: () => void;
     onBack?: () => void;
     onAdminAccess?: () => void; // New prop for admin access
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onBack, onAdminAccess }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onGoogleLogin, onBack, onAdminAccess }) => {
     const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
     
     // Tracking active tab as a separate "page"
@@ -155,7 +155,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onB
     };
     
     const handleGoogleLogin = () => {
-       alert("Login com Google requer configuração adicional no Firebase Console.");
+       if (onGoogleLogin) {
+           onGoogleLogin();
+       }
     };
 
     const isLoginButtonDisabled = !formData.email || !formData.password || isSubmitting;
