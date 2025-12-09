@@ -169,7 +169,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
     };
 
     return (
-         <div className="fixed inset-0 z-50 bg-[#050505] text-white flex flex-col items-center justify-center p-4 overflow-hidden font-sans">
+         <div className="fixed inset-0 z-50 bg-[#050505] text-white flex flex-col items-center justify-center overflow-hidden font-sans">
             
             {/* Background Effects */}
             <div className="absolute inset-0 aurora-background opacity-60 pointer-events-none"></div>
@@ -185,7 +185,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                 </button>
             )}
 
-            <div className="relative z-10 w-full max-w-md h-full flex flex-col justify-center">
+            <div className="relative z-10 w-full max-w-md h-full flex flex-col justify-center px-4 md:px-0">
                 
                 {/* Header Logo - Reduced margin for mobile optimization */}
                 <div className={`flex flex-col items-center mb-4 flex-shrink-0 transition-all duration-500 ease-out ${isSuccess ? 'scale-0 opacity-0' : 'scale-100 opacity-100 animate-slide-in-up'}`}>
@@ -195,8 +195,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                     <h1 className="text-2xl md:text-3xl font-bold font-sora tracking-tight">Inspira<span className="text-violet-500">+</span></h1>
                 </div>
 
-                {/* Glass Card - Increased max-height for better mobile layout */}
-                <div className="bg-[#111]/80 backdrop-blur-xl border border-white/10 p-5 md:p-8 rounded-3xl shadow-2xl overflow-y-auto max-h-[90vh] scrollbar-hide relative transition-all duration-500 animate-slide-in-up flex flex-col" style={{ animationDelay: '100ms' }}>
+                {/* Glass Card - Enhanced for mobile scrolling */}
+                <div className="bg-[#111]/80 backdrop-blur-xl border border-white/10 p-5 md:p-8 rounded-3xl shadow-2xl overflow-y-auto max-h-[85vh] scrollbar-hide relative transition-all duration-500 animate-slide-in-up flex flex-col" style={{ animationDelay: '100ms' }}>
                     
                     {/* Success Overlay */}
                     {isSuccess && (
@@ -240,7 +240,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 
                         <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
                             
-                            {/* Signup Specific Fields - Increased Max-Height to prevent cutting off */}
+                            {/* Signup Specific Fields - Smooth accordion */}
                             <div className={`space-y-3 md:space-y-4 overflow-hidden transition-all duration-500 ease-in-out ${activeTab === 'signup' ? 'max-h-[500px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-4'}`}>
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
