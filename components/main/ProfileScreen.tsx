@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUserData } from '../../context/UserDataContext';
 import { useAuth } from '../../context/AuthContext';
-import { ChevronLeftIcon, ChevronRightIcon, CrownIcon, HeartIcon, TrendingUpIcon, LightbulbIcon, EditIcon, CheckIcon, ClipboardIcon, LogoutIcon, LinkIcon } from '../Icons';
+import { ChevronLeftIcon, ChevronRightIcon, CrownIcon, HeartIcon, TrendingUpIcon, LightbulbIcon, EditIcon, CheckIcon, ClipboardIcon, LogoutIcon, LinkIcon, CogIcon } from '../Icons';
 import { Quote } from '../../types';
 import { generateDailyFocus } from '../../services/aiService';
 import { EditProfileScreen } from './EditProfileScreen';
@@ -23,6 +23,8 @@ interface ProfileScreenProps {
     onLogout: () => void;
     onShowTerms?: () => void;
     onShowPrivacy?: () => void;
+    isAdmin?: boolean;
+    onOpenAdmin?: () => void;
 }
 
 interface DailyFocus {
@@ -78,7 +80,7 @@ const StatCard: React.FC<{ icon: React.ReactNode, value: number, label: string }
     </div>
 );
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, onLike, setToastMessage, isClosing, onGoToPremium, onLogout, onShowTerms, onShowPrivacy }) => {
+export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, onLike, setToastMessage, isClosing, onGoToPremium, onLogout, onShowTerms, onShowPrivacy, isAdmin, onOpenAdmin }) => {
     usePageTracking('/profile');
     const { userData } = useUserData();
     const { userEmail } = useAuth();
@@ -147,6 +149,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
                 <section aria-label="Informações do Usuário" className="text-center">
                     <h2 className="text-3xl font-bold text-gray-900">{userData?.name || 'Usuário'}</h2>
                     <p className="text-lg text-gray-500 mt-1">{userEmail}</p>
+                    {isAdmin && (
+                        <div className="mt-2">
+                             <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
+                                Administrador
+                             </span>
+                        </div>
+                    )}
                 </section>
 
                 <SectionCard>
@@ -217,6 +226,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
                         </div>
                         <ChevronRightIcon className="text-xl text-gray-400" aria-hidden="true" />
                     </button>
+
+                    {isAdmin && onOpenAdmin && (
+                        <button onClick={onOpenAdmin} className="flex items-center justify-between w-full p-4 bg-indigo-50 border border-indigo-100 rounded-lg hover:bg-indigo-100 transition-colors text-left" aria-label="Acessar Painel Administrativo">
+                            <div className="flex items-center space-x-4">
+                                <CogIcon className="text-2xl text-indigo-600" aria-hidden="true" />
+                                <span className="text-indigo-900 font-medium text-lg">Painel Admin</span>
+                            </div>
+                            <ChevronRightIcon className="text-xl text-indigo-400" aria-hidden="true" />
+                        </button>
+                    )}
+
                     <button onClick={onLogout} className="flex items-center w-full p-4 bg-white rounded-lg hover:bg-gray-100 transition-colors text-left ring-1 ring-gray-200" aria-label="Sair da conta">
                         <div className="flex items-center space-x-4">
                             <LogoutIcon className="text-2xl text-red-500" aria-hidden="true" />

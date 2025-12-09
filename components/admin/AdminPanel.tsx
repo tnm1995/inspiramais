@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { CloseIcon, UserCircleIcon, CrownIcon } from '../Icons';
+import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon } from '../Icons';
 import { UserData } from '../../types';
 import { db } from '../../firebaseConfig';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
 import { usePageTracking } from '../../hooks/usePageTracking';
 
 interface AdminPanelProps {
@@ -14,7 +14,7 @@ interface AdminPanelProps {
 
 interface AdminUser {
     id: string; // Firebase UID
-    email?: string; // Stored in the document for easy access or need to fetch from Auth (complicated in client SDK). We assume email is saved in UserData for simplicity or we iterate.
+    email?: string; 
     data: UserData;
 }
 
@@ -82,6 +82,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         }
     };
 
+    const handleToggleAdmin = async (userId: string, currentStatus?: boolean) => {
+        try {
+            await updateDoc(doc(db, "users", userId), {
+                isAdmin: !currentStatus
+            });
+            setToastMessage({ message: `Status de Admin atualizado.`, type: 'success' });
+            loadUsers();
+        } catch (e) {
+            setToastMessage({ message: "Erro ao alterar permissão.", type: 'error' });
+        }
+    };
+
     const handleCancel = async (userId: string) => {
         try {
             await updateDoc(doc(db, "users", userId), {
@@ -107,17 +119,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         }
     };
 
-    // Note: Creating a user via Admin SDK requires a Firebase Function or switching Auth context. 
-    // In client SDK, creating a user logs you in as that user.
-    // For this prototype, we will warn the admin.
+    const handleLogout = async () => {
+        const auth = getAuth();
+        try {
+            await signOut(auth);
+            // App state will react to auth change
+            onClose(); // Close panel
+        } catch (error) {
+            console.error("Logout error", error);
+        }
+    };
+
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        alert("Atenção: Criar um usuário aqui fará o logout da sua conta de admin atual, pois o Firebase Auth Client SDK apenas suporta um usuário ativo por vez. Você terá que relogar como admin depois.");
+        if (!confirm("Atenção: Criar um usuário aqui fará o logout da sua conta de admin atual, pois o Firebase Auth Client SDK apenas suporta um usuário ativo por vez. Você terá que relogar como admin depois.")) return;
         
         if (!newUserEmail || !newUserName || !newUserPassword) return;
 
         try {
-            // This logs out the admin and logs in the new user
             const userCredential = await createUserWithEmailAndPassword(getAuth(), newUserEmail, newUserPassword);
             const user = userCredential.user;
 
@@ -128,6 +147,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             const newUser: UserData = {
                 onboardingComplete: true,
                 isPremium: newUserPremium,
+                isAdmin: false,
                 subscriptionExpiry: newUserPremium ? expiryDate.toISOString() : undefined,
                 name: newUserName,
                 // @ts-ignore - storing email for admin usage
@@ -148,9 +168,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             };
 
             await setDoc(doc(db, "users", user.uid), newUser);
-            
-            // Because we are now logged in as the new user, we essentially reload the app flow.
-            // In a real admin panel, this logic belongs in a Cloud Function.
             window.location.reload(); 
 
         } catch (error: any) {
@@ -175,13 +192,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             <header className="flex items-center justify-between p-6 border-b border-white/10 bg-[#0a0a0a]">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center">
-                        <UserCircleIcon className="text-2xl text-white" />
+                        <CogIcon className="text-2xl text-white" />
                     </div>
-                    <h1 className="text-xl font-bold font-serif">Admin (Firebase)</h1>
+                    <div>
+                        <h1 className="text-xl font-bold font-serif">Admin</h1>
+                        <p className="text-xs text-gray-400">Firebase Firestore</p>
+                    </div>
                 </div>
-                <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
-                    <CloseIcon className="text-xl" />
-                </button>
+                <div className="flex items-center gap-2">
+                     <button 
+                        onClick={handleLogout}
+                        className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center hover:bg-red-500/20 transition-colors border border-red-500/20"
+                        title="Sair da Conta"
+                    >
+                        <LogoutIcon className="text-red-500" />
+                    </button>
+                    <button onClick={onClose} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors">
+                        <CloseIcon className="text-xl" />
+                    </button>
+                </div>
             </header>
 
             {/* Content */}
@@ -191,7 +220,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                 <div className="flex flex-col md:flex-row justify-between gap-4 mb-8">
                     <input 
                         type="text" 
-                        placeholder="Buscar..." 
+                        placeholder="Buscar por nome ou e-mail..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 w-full md:w-96"
@@ -223,6 +252,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                                         <h3 className="font-bold text-white flex items-center gap-2">
                                             {user.data.name || 'Sem nome'}
                                             {user.data.isPremium && <CrownIcon className="text-amber-500 text-xs" />}
+                                            {user.data.isAdmin && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 rounded-full border border-indigo-500/30">ADMIN</span>}
                                         </h3>
                                         <p className="text-sm text-gray-400">{user.email || user.id}</p>
                                     </div>
@@ -260,6 +290,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                                             +1 Ano
                                         </button>
                                     </div>
+
+                                    {/* Admin Toggle */}
+                                    <button 
+                                        onClick={() => handleToggleAdmin(user.id, user.data.isAdmin)}
+                                        className={`px-3 py-2 text-xs font-bold rounded-lg border transition-colors ${user.data.isAdmin ? 'text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10' : 'text-gray-500 border-gray-700 hover:text-white hover:border-gray-500'}`}
+                                    >
+                                        {user.data.isAdmin ? 'Remover Admin' : 'Tornar Admin'}
+                                    </button>
 
                                     {user.data.isPremium && (
                                         <button 

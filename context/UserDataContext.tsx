@@ -24,6 +24,7 @@ const INITIAL_QUESTS: DailyQuest[] = [
 const initialUserDataTemplate: UserData = {
     onboardingComplete: false,
     isPremium: false, 
+    isAdmin: false,
     subscriptionExpiry: '',
     source: '',
     age: '',
@@ -135,6 +136,8 @@ export const UserDataProvider: React.FC<{children: ReactNode}> = ({ children }) 
     }, (error) => {
         console.error("Firestore sync error:", error);
         setLoading(false);
+    }, () => {
+        // Complete
     });
 
     return () => unsubscribe();

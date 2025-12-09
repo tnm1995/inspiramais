@@ -29,8 +29,6 @@ const ShareModal = lazy(() => import('./components/main/ShareModal').then(module
 const GamificationModal = lazy(() => import('./components/gamification/GamificationModal').then(module => ({ default: module.GamificationModal })));
 const LevelUpModal = lazy(() => import('./components/gamification/LevelUpModal').then(module => ({ default: module.LevelUpModal })));
 
-const ADMIN_EMAIL = "admin@inspiramais.com";
-
 type ToastMessage = {
     message: string;
     type: 'success' | 'error';
@@ -97,11 +95,12 @@ const AppContent = () => {
 
     // Derived State
     const isOnboarded = !!userData?.onboardingComplete;
+    const isAdmin = !!userData?.isAdmin;
     
     // Strict Access Control Check
     const hasActiveAccess = useMemo(() => {
         // Admins always have access
-        if (showAdmin) return true;
+        if (isAdmin) return true;
         
         if (!userData) return false;
         
@@ -116,7 +115,7 @@ const AppContent = () => {
         }
 
         return true;
-    }, [userData, showAdmin]);
+    }, [userData, isAdmin]);
 
     const isSharePage = useMemo(() => new URLSearchParams(window.location.search).get('share') === 'true', []);
 
@@ -126,16 +125,6 @@ const AppContent = () => {
              setToastMessage({ message: authError, type: 'error' });
         }
     }, [authError]);
-
-    // Admin Access Check
-    useEffect(() => {
-        if (currentUser && currentUser.email === ADMIN_EMAIL) {
-            setShowAdmin(true);
-            setShowLogin(false);
-        } else {
-            setShowAdmin(false);
-        }
-    }, [currentUser]);
 
     // Handle Post-Auth Data Initialization
     useEffect(() => {
@@ -733,6 +722,8 @@ const AppContent = () => {
                         onLogout={handleLogout}
                         onShowTerms={() => setShowTerms(true)}
                         onShowPrivacy={() => setShowPrivacy(true)}
+                        isAdmin={isAdmin}
+                        onOpenAdmin={() => { handleHideProfile(); setShowAdmin(true); }}
                     />
                 )}
 

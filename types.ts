@@ -2,6 +2,7 @@
 export interface UserData {
   onboardingComplete: boolean;
   isPremium: boolean;
+  isAdmin?: boolean; // New field for admin privileges
   subscriptionExpiry?: string; // ISO Date string
   source?: string;
   age?: string;
