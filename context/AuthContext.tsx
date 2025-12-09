@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth } from '../firebaseConfig';
 import { 
@@ -8,7 +9,8 @@ import {
     User,
     GoogleAuthProvider,
     signInWithPopup,
-    UserCredential
+    UserCredential,
+    sendPasswordResetEmail
 } from 'firebase/auth';
 import { LoginFormData, SignupFormData } from '../types';
 
@@ -19,6 +21,7 @@ interface AuthContextType {
   login: (data: LoginFormData) => Promise<void>;
   signup: (data: SignupFormData) => Promise<void>;
   loginWithGoogle: () => Promise<UserCredential>;
+  resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
   authError: string | null;
@@ -86,6 +89,20 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
     }
   };
 
+  const resetPassword = async (email: string) => {
+      setAuthError(null);
+      try {
+          await sendPasswordResetEmail(auth, email);
+      } catch (error: any) {
+          console.error("Reset password error:", error);
+          let msg = "Falha ao enviar e-mail de redefinição.";
+          if (error.code === 'auth/invalid-email') msg = "E-mail inválido.";
+          if (error.code === 'auth/user-not-found') msg = "E-mail não cadastrado.";
+          setAuthError(msg);
+          throw error;
+      }
+  };
+
   const logout = async () => {
     try {
         await signOut(auth);
@@ -105,6 +122,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
         login, 
         signup, 
         loginWithGoogle,
+        resetPassword,
         logout, 
         isLoading,
         authError

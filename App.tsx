@@ -48,7 +48,7 @@ const triggerHapticFeedback = (pattern: number | number[] = 30) => {
 
 const AppContent = () => {
     const { userData, updateUserData, loading: isUserDataLoading, completeQuest, initializeUser } = useUserData();
-    const { login, signup, loginWithGoogle, logout, isAuthenticated, isLoading: isAuthLoading, authError } = useAuth();
+    const { login, signup, loginWithGoogle, resetPassword, logout, isAuthenticated, isLoading: isAuthLoading, authError } = useAuth();
     const [needsMoodCheckin, setNeedsMoodCheckin] = useState(false);
     
     // Login Flow State
@@ -525,6 +525,15 @@ const AppContent = () => {
         setToastMessage({ message: `Cadastro cancelado.`, type: 'error' });
     };
 
+    const handleResetPassword = async (email: string) => {
+        try {
+            await resetPassword(email);
+            setToastMessage({ message: `E-mail de recuperação enviado para ${email}`, type: 'success' });
+        } catch (error) {
+            // Error handling done in context, toast message updated via useEffect on authError
+        }
+    };
+
     const handleLogout = useCallback(() => {
         // Immediate redirection order to prevent onboarding flash
         setShowLogin(true);
@@ -582,6 +591,7 @@ const AppContent = () => {
                 onLogin={handleLoginSubmit} 
                 onSignup={handleSignupSubmit}
                 onGoogleLogin={handleGoogleLogin}
+                onResetPassword={handleResetPassword}
                 onBack={() => setShowLogin(false)}
             />
         );
