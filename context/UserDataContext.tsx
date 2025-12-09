@@ -30,8 +30,12 @@ const initialUserDataTemplate: UserData = {
     source: '',
     age: '',
     name: '',
+    email: '',
+    phone: '',
+    cpf: '',
     gender: '',
     relationshipStatus: '',
+    hasChildren: '', // Inicializar vazio
     isReligious: '',
     beliefs: '',
     zodiac: '',

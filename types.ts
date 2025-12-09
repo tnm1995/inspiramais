@@ -12,6 +12,7 @@ export interface UserData {
   cpf?: string;
   gender?: string;
   relationshipStatus?: string;
+  hasChildren?: string; // Nova pergunta sobre filhos
   isReligious?: string;
   beliefs?: string;
   zodiac?: string;

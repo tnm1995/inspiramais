@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { UserDataProvider, useUserData } from './context/UserDataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
+import { OnboardingFlow, OnboardingStep } from './components/onboarding/OnboardingFlow'; // Import Enum
 import { Quote, DailyMotivation, UserStats } from './types';
 import { UserCircleIcon, CheckIcon, WarningIcon, FilterIcon, SunnyIcon, TrophyIcon, FlameIcon, CrownIcon, LogoutIcon } from './components/Icons';
 import { SharePage } from './components/main/SharePage';
@@ -140,12 +140,12 @@ const AppContent = () => {
             // Initialize Firestore Document
             initializeUser({
                 name: tempSignupData.name,
-                onboardingComplete: true,
+                onboardingComplete: false, // Start false so we see the OnboardingFlow questions
                 cpf: tempSignupData.cpf, // Save CPF
                 // In real app, store phone/CPF secure hash or in a separate secure collection if needed
                 // For this demo we just initialize the basic profile
             }).then(() => {
-                setToastMessage({ message: `Conta criada com sucesso!`, type: 'success' });
+                setToastMessage({ message: `Conta criada!`, type: 'success' });
                 setAuthAction(null);
                 setTempSignupData(null);
                 setShowLogin(false);
@@ -154,11 +154,13 @@ const AppContent = () => {
         } else if (authAction === 'login' && isAuthenticated && !isUserDataLoading && !pendingGoogleUser) {
             // Login successful
             // Ensure onboarding is marked if it was missing (migration)
+            /* COMMENTED OUT: Do NOT force complete onboarding on migration anymore, let them answer questions if missing
             if (userData && !userData.onboardingComplete) {
                 updateUserData({ onboardingComplete: true });
             }
+            */
             
-            setToastMessage({ message: `Bem-vindo(a) de volta!`, type: 'success' });
+            setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
             setAuthAction(null);
             setShowLogin(false);
         }
@@ -510,7 +512,7 @@ const AppContent = () => {
         await initializeUser({
             name: pendingGoogleUser.displayName || 'Usuária',
             email: pendingGoogleUser.email || undefined,
-            onboardingComplete: true,
+            onboardingComplete: false, // Start false to force questionnaire
             cpf: cpf
         }, pendingGoogleUser.uid);
 
@@ -597,8 +599,7 @@ const AppContent = () => {
         );
     }
 
-    // If we are authenticated but user data is somehow missing or not loaded yet, wait or show loading
-    // But if not authenticated, start onboarding
+    // If not authenticated, start onboarding (Landing Page)
     if (!isAuthenticated) return (
         <>
             <OnboardingFlow 
@@ -627,6 +628,18 @@ const AppContent = () => {
                     Tentar Novamente (Sair)
                 </button>
             </div>
+        );
+    }
+
+    // AUTHENTICATED BUT NOT ONBOARDED: Force Onboarding Flow starting from Welcome
+    if (userData && !userData.onboardingComplete) {
+        return (
+            <OnboardingFlow 
+                initialStep={OnboardingStep.Welcome}
+                onLoginClick={() => {}} // Should not happen since logged in
+                onShowTerms={() => setShowTerms(true)}
+                onShowPrivacy={() => setShowPrivacy(true)}
+            />
         );
     }
 

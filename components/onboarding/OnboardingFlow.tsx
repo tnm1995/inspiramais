@@ -6,6 +6,7 @@ import { TopicsScreen } from './screens/TopicsScreen';
 import { SourceScreen } from './screens/SourceScreen';
 import { AgeScreen } from './screens/AgeScreen';
 import { RelationshipScreen } from './screens/RelationshipScreen';
+import { ChildrenScreen } from './screens/ChildrenScreen'; // Nova tela
 import { ReligiousScreen } from './screens/ReligiousScreen';
 import { BeliefsScreen } from './screens/BeliefsScreen';
 import { ZodiacScreen } from './screens/ZodiacScreen';
@@ -19,13 +20,14 @@ import { LandingPage } from '../landing/LandingPage';
 import { usePageTracking } from '../../hooks/usePageTracking';
 
 
-enum OnboardingStep {
+export enum OnboardingStep {
     Landing,
     Welcome,
     Source,
     Age,
     // Gender removed
     Relationship,
+    Children, // Nova Etapa
     Religious,
     Beliefs,
     Zodiac,
@@ -42,10 +44,11 @@ interface OnboardingFlowProps {
     onLoginClick: () => void;
     onShowTerms?: () => void;
     onShowPrivacy?: () => void;
+    initialStep?: OnboardingStep;
 }
 
-export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, onShowTerms, onShowPrivacy }) => {
-    const [history, setHistory] = useState<OnboardingStep[]>([OnboardingStep.Landing]);
+export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, onShowTerms, onShowPrivacy, initialStep }) => {
+    const [history, setHistory] = useState<OnboardingStep[]>([initialStep || OnboardingStep.Landing]);
     const { updateUserData } = useUserData();
 
     const step = history[history.length - 1];
@@ -86,8 +89,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, on
         }
     };
 
-    const totalSteps = Object.keys(OnboardingStep).length / 2;
-    const progress = (step / (15)) * 100;
+    // Calculation total steps slightly approximate due to branching
+    const totalSteps = 16;
+    const progress = (step / totalSteps) * 100;
 
     const renderStep = () => {
         switch (step) {
@@ -96,6 +100,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, on
             case OnboardingStep.Source: return <SourceScreen onNext={next} onBack={back} progress={progress} />;
             case OnboardingStep.Age: return <AgeScreen onNext={next} onBack={back} progress={progress} />;
             case OnboardingStep.Relationship: return <RelationshipScreen onNext={next} onBack={back} progress={progress} />;
+            case OnboardingStep.Children: return <ChildrenScreen onNext={next} onBack={back} progress={progress} />;
             case OnboardingStep.Religious: return <ReligiousScreen onNext={handleReligiousChoice} onBack={back} progress={progress} />;
             case OnboardingStep.Beliefs: return <BeliefsScreen onNext={next} onBack={back} progress={progress} />;
             case OnboardingStep.Zodiac: return <ZodiacScreen onNext={next} onBack={back} progress={progress} />;

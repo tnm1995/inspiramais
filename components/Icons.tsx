@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface IconProps extends React.HTMLAttributes<HTMLSpanElement> {
@@ -78,3 +79,4 @@ export const PhoneIcon = (props: any) => <Icon iconName="phone" {...props} />;
 export const DownloadIcon = (props: any) => <Icon iconName="download" {...props} />;
 export const HeartIcon = (props: any) => <Icon iconName="favorite" {...props} />;
 export const ArrowRightIcon = (props: any) => <Icon iconName="arrow_forward" {...props} />;
+export const BabyIcon = (props: any) => <Icon iconName="child_care" {...props} />;
