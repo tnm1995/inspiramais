@@ -11,17 +11,17 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    {/* The 'children' prop error here is resolved by fixing the ErrorBoundary component's internal typing. */}
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
   </React.StrictMode>
 );
 
-// Register service worker for PWA capabilities
+// Service Worker registration is disabled to prevent 404 errors in Vercel/Production
+// until a proper Vite PWA plugin configuration is established.
+/*
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // The service worker file extension should be .js after transpilation
     navigator.serviceWorker.register('/service-worker.js')
       .then(registration => {
         console.log('SW registered: ', registration);
@@ -31,3 +31,4 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+*/
