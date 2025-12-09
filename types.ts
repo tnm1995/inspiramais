@@ -7,6 +7,7 @@ export interface UserData {
   source?: string;
   age?: string;
   name?: string;
+  email?: string; // Field for user email persistence
   gender?: string;
   relationshipStatus?: string;
   isReligious?: string;

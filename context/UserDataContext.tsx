@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { UserData, UserStats, DailyQuest } from '../types';
 import { useAuth } from './AuthContext';
@@ -10,7 +11,7 @@ interface UserDataContextType {
   updateUserData: (data: Partial<UserData>) => Promise<void>;
   loading: boolean;
   completeQuest: (questId: 'read_quotes' | 'like_quote' | 'share_quote') => { leveledUp: boolean; newLevel: number } | null;
-  initializeUser: (initialData: Partial<UserData>) => Promise<void>;
+  initializeUser: (initialData: Partial<UserData>, explicitUid?: string) => Promise<void>;
 }
 
 const UserDataContext = createContext<UserDataContextType | undefined>(undefined);
@@ -144,8 +145,13 @@ export const UserDataProvider: React.FC<{children: ReactNode}> = ({ children }) 
   }, [currentUser, isAuthenticated]);
 
 
-  const initializeUser = async (signupData: Partial<UserData>) => {
-      if (!currentUser) return;
+  const initializeUser = async (signupData: Partial<UserData>, explicitUid?: string) => {
+      const targetUid = explicitUid || currentUser?.uid;
+      
+      if (!targetUid) {
+          console.error("Cannot initialize user: No UID available");
+          return;
+      }
       
       const today = new Date().toISOString().split('T')[0];
       const newUser: UserData = {
@@ -159,7 +165,7 @@ export const UserDataProvider: React.FC<{children: ReactNode}> = ({ children }) 
       };
 
       try {
-          await setDoc(doc(db, "users", currentUser.uid), newUser);
+          await setDoc(doc(db, "users", targetUid), newUser);
           setUserData(newUser);
       } catch (e) {
           console.error("Error initializing user in Firestore", e);

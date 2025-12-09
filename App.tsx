@@ -489,20 +489,15 @@ const AppContent = () => {
                 // New user via Google, initialize default data
                 await initializeUser({
                     name: user.displayName || 'Usuária',
-                    // email is not stored in userData by default in this app schema, but can be added if needed
-                    onboardingComplete: true // Assuming Google Users skip onboarding or do it later? For now marking true to avoid broken state.
-                    // Or keep onboardingComplete: false to force them through onboarding flow (preferred).
-                    // Let's keep it false in initializeUser default, but here we can check.
-                    // Actually, initializeUser sets default onboardingComplete to false. 
-                    // So Google users will go through onboarding.
-                });
+                    email: user.email || undefined,
+                    onboardingComplete: true
+                }, user.uid); // Pass UID explicitly to prevent race condition
                 setToastMessage({ message: `Conta criada com sucesso!`, type: 'success' });
             } else {
                  setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
             }
             setShowLogin(false);
         } catch (error) {
-            // Error handling is managed in AuthContext or silently here
             console.error("Google Login Handled Error:", error);
         }
     };
