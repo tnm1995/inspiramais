@@ -44,9 +44,9 @@ const initialUserDataTemplate: UserData = {
     stats: {
         xp: 0,
         level: 1,
-        currentStreak: 0,
-        lastLoginDate: '',
-        quests: INITIAL_QUESTS,
+        currentStreak: 0, // Starts at 0, truly zeroed
+        lastLoginDate: '', // No date set yet
+        quests: INITIAL_QUESTS, // Default empty progress quests
         totalQuotesRead: 0,
         totalLikes: 0,
         totalShares: 0,
@@ -102,6 +102,7 @@ export const UserDataProvider: React.FC<{children: ReactNode}> = ({ children }) 
                     if (updatedStats.lastLoginDate === yesterdayStr) {
                         updatedStats.currentStreak = (updatedStats.currentStreak || 0) + 1;
                     } else {
+                        // If logic dictates streak breaks, reset to 1 on login day
                         updatedStats.currentStreak = 1;
                     }
                 } else {
@@ -160,7 +161,7 @@ export const UserDataProvider: React.FC<{children: ReactNode}> = ({ children }) 
           stats: {
               ...initialUserDataTemplate.stats,
               lastLoginDate: today,
-              currentStreak: 1
+              currentStreak: 1 // Start streak at 1 on first login
           }
       };
 

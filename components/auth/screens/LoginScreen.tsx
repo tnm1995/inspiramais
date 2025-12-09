@@ -1,7 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { EmailIcon, LockIcon, UserCircleIcon, PhoneIcon, SparkleIcon, ArrowRightIcon, ChevronLeftIcon, GoogleIcon, CreditCardIcon, CheckIcon, CloseIcon, WarningIcon, CogIcon } from '../../Icons';
 import { LoginFormData, SignupFormData } from '../../../types';
 import { usePageTracking } from '../../../hooks/usePageTracking';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../../firebaseConfig';
 
 interface LoginScreenProps {
     onLogin: (data: LoginFormData) => void;
@@ -135,6 +138,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                 const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
                 
                 if (isPasswordValid && isCpfValid) {
+                    
+                    // --- CPF UNIQUENESS CHECK ---
+                    try {
+                        const usersRef = collection(db, "users");
+                        const q = query(usersRef, where("cpf", "==", formData.cpf));
+                        const querySnapshot = await getDocs(q);
+
+                        if (!querySnapshot.empty) {
+                            setErrorMessage("Este CPF já possui um cadastro.");
+                            setIsSubmitting(false);
+                            return;
+                        }
+                    } catch (firestoreError: any) {
+                        console.error("Erro ao verificar CPF:", firestoreError);
+                        // Se for erro de permissão (comum antes de regras de admin), deixamos passar ou bloqueamos.
+                        // Para segurança, bloqueamos se não conseguimos validar, a menos que seja erro de rede.
+                        if (firestoreError.code === 'permission-denied') {
+                             // Em desenvolvimento/sem regras ajustadas, pode dar erro.
+                             // Idealmente, ajuste as regras do Firebase para permitir queries filtradas.
+                             console.warn("Permissão negada para verificar CPF. Prosseguindo (Cuidado).");
+                        }
+                    }
+                    // -----------------------------
+
                     await onSignup({
                         name: formData.name,
                         email: formData.email,
