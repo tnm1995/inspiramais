@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useUserData } from '../../context/UserDataContext';
 import { WelcomeScreen } from './screens/WelcomeScreen';
@@ -49,8 +50,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, on
 
     const step = history[history.length - 1];
 
-    // Track onboarding steps as pages
-    usePageTracking(`Onboarding_${OnboardingStep[step]}`);
+    // Track onboarding steps as pages with hierarchical URL format
+    usePageTracking(`/onboarding/${OnboardingStep[step].toLowerCase()}`);
 
     const next = () => {
         setHistory(prev => [...prev, prev[prev.length - 1] + 1]);

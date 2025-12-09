@@ -20,7 +20,7 @@ interface StructuredResponse {
 }
 
 export const ExploreModal: React.FC<ExploreModalProps> = ({ quote, onClose, isClosing }) => {
-    usePageTracking('ExploreModal');
+    usePageTracking('/explore');
     const { userData } = useUserData();
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);

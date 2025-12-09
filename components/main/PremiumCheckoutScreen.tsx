@@ -45,7 +45,7 @@ const faqs = [
 ];
 
 export const PremiumCheckoutScreen: React.FC<PremiumCheckoutScreenProps> = ({ onBack, onPurchaseComplete, isClosing }) => {
-    usePageTracking('PremiumCheckoutScreen');
+    usePageTracking('/premium-checkout');
     const [isProcessing, setIsProcessing] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
     const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);

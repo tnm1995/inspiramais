@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState, memo, useCallback } from 'react';
 import { Quote } from '../../types';
 import { HeartIcon, ShareIcon, SparkleIcon, CachedIcon } from '../Icons';
@@ -82,7 +81,7 @@ interface QuoteFeedProps {
 }
 
 export const QuoteFeed: React.FC<QuoteFeedProps> = ({ quotes, isLoading, onLike, onShare, onExplore, onRead, loadMore, likedQuoteId, onRefresh }) => {
-    usePageTracking('QuoteFeed');
+    usePageTracking('/home');
     const containerRef = useRef<HTMLDivElement>(null);
     const loaderRef = useRef<HTMLDivElement>(null);
     const isLoadingMore = useRef(false);
@@ -238,10 +237,9 @@ export const QuoteFeed: React.FC<QuoteFeedProps> = ({ quotes, isLoading, onLike,
                     <div className="flex flex-col items-center gap-2 pointer-events-auto -mb-2 transform transition-transform hover:-translate-y-1">
                         <button 
                             onClick={() => onLike(activeQuote.id, activeQuote.liked)}
-                            className={`relative group w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl active:scale-90 ${activeQuote.liked ? 'bg-gradient-to-tr from-red-600 to-pink-500 shadow-red-500/50 scale-105' : 'bg-black/50 backdrop-blur-xl border border-white/10 hover:border-white/30'}`}
+                            className={`relative group w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl active:scale-90 ${activeQuote.liked ? 'bg-gradient-to-tr from-violet-600 to-fuchsia-600 shadow-violet-500/50 scale-105' : 'bg-black/50 backdrop-blur-xl border border-white/10 hover:border-white/30'}`}
                             aria-label="Curtir"
                         >
-                            {/* Optical Alignment: Heart is usually top-heavy visually, adding mt-[2px] centers it better */}
                             <HeartIcon 
                                 filled={activeQuote.liked} 
                                 className={`text-[42px] mt-[2px] transition-all duration-300 ${activeQuote.liked ? 'text-white' : 'text-white/90 group-hover:text-white'} ${isExploding ? 'animate-pop' : ''}`} 
@@ -254,19 +252,18 @@ export const QuoteFeed: React.FC<QuoteFeedProps> = ({ quotes, isLoading, onLike,
                         </button>
                     </div>
 
-                    {/* Post/Share Orb */}
+                    {/* Share Orb */}
                     <div className="flex flex-col items-center gap-2 pointer-events-auto transform transition-transform hover:-translate-y-1">
                         <button 
                             onClick={() => onShare(activeQuote)} 
-                            className="group relative w-14 h-14 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all duration-300 hover:bg-green-900/40 hover:border-green-500/50 hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] active:scale-90"
+                            className="group relative w-14 h-14 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all duration-300 hover:bg-violet-900/40 hover:border-violet-500/50 hover:shadow-[0_0_20px_rgba(139,92,246,0.3)] active:scale-90"
                             aria-label="Compartilhar"
                         >
-                            {/* Optical Alignment: Share icon often leans left. ml-[2px] centers it. */}
                             <ShareIcon className="text-[26px] ml-[2px] mt-[1px] text-white/90 group-hover:text-white transition-colors" />
                              {/* Inner glow ring */}
                              <div className="absolute inset-0 rounded-full border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         </button>
-                        <span className="text-[10px] font-bold tracking-widest uppercase text-white/50 drop-shadow-md group-hover:text-green-300 transition-colors">Postar</span>
+                        <span className="text-[10px] font-bold tracking-widest uppercase text-white/50 drop-shadow-md group-hover:text-violet-300 transition-colors">Postar</span>
                     </div>
 
                 </div>

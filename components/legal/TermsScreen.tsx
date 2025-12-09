@@ -1,12 +1,14 @@
 
 import React from 'react';
 import { ChevronLeftIcon } from '../Icons';
+import { usePageTracking } from '../../hooks/usePageTracking';
 
 interface TermsScreenProps {
     onClose: () => void;
 }
 
 export const TermsScreen: React.FC<TermsScreenProps> = ({ onClose }) => {
+    usePageTracking('/terms');
     return (
         <div className="fixed inset-0 z-[60] bg-[#050505] text-white flex flex-col animate-slide-in-up overflow-hidden">
             <header className="flex items-center p-4 border-b border-white/10 bg-[#050505]/90 backdrop-blur-md z-10">

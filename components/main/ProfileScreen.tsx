@@ -79,7 +79,7 @@ const StatCard: React.FC<{ icon: React.ReactNode, value: number, label: string }
 );
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, onLike, setToastMessage, isClosing, onGoToPremium, onLogout, onShowTerms, onShowPrivacy }) => {
-    usePageTracking('ProfileScreen');
+    usePageTracking('/profile');
     const { userData } = useUserData();
     const { userEmail } = useAuth();
     const [copiedId, setCopiedId] = useState<string | null>(null);

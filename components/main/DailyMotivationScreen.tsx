@@ -27,7 +27,7 @@ interface DailyMotivationScreenProps {
 }
 
 export const DailyMotivationScreen: React.FC<DailyMotivationScreenProps> = ({ quote, isLoading, onBack, onNavigateToProfile, isClosing, onLike, onShare, onExplore, likedQuoteId }) => {
-    usePageTracking('DailyMotivationScreen');
+    usePageTracking('/daily-motivation');
     const isExploding = likedQuoteId === quote?.id;
     
     const today = new Date();

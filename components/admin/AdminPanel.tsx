@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { CloseIcon, UserCircleIcon, CrownIcon } from '../Icons';
 import { UserData } from '../../types';
 import { db } from '../../firebaseConfig';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { usePageTracking } from '../../hooks/usePageTracking';
 
 interface AdminPanelProps {
     onClose: () => void;
@@ -17,6 +19,7 @@ interface AdminUser {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage }) => {
+    usePageTracking('/admin');
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);

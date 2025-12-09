@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { EmailIcon, LockIcon, UserCircleIcon, PhoneIcon, SparkleIcon, ArrowRightIcon, ChevronLeftIcon, GoogleIcon, CreditCardIcon, CheckIcon, CloseIcon, WarningIcon, CogIcon } from '../../Icons';
 import { LoginFormData, SignupFormData } from '../../../types';
@@ -14,7 +15,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onB
     const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
     
     // Tracking active tab as a separate "page"
-    usePageTracking(activeTab === 'login' ? 'Login' : 'Signup');
+    usePageTracking(activeTab === 'login' ? '/login' : '/signup');
 
     const [formData, setFormData] = useState({
         name: '',
