@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { CrownIcon, LogoutIcon, ArrowRightIcon, LockIcon } from '../Icons';
+import { usePageTracking } from '../../hooks/usePageTracking';
 
 interface SubscriptionExpiredScreenProps {
     onRenew: () => void;
@@ -8,6 +9,7 @@ interface SubscriptionExpiredScreenProps {
 }
 
 export const SubscriptionExpiredScreen: React.FC<SubscriptionExpiredScreenProps> = ({ onRenew, onLogout }) => {
+    usePageTracking('SubscriptionExpiredScreen');
     return (
         <div className="fixed inset-0 z-[100] bg-[#050505] text-white flex flex-col items-center justify-center p-6 overflow-hidden animate-fade-in">
             {/* Background Atmosphere */}

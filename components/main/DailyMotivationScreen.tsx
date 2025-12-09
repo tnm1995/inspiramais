@@ -11,6 +11,7 @@ import {
 } from '../Icons';
 import { ThinkingIndicator } from '../ui/ThinkingIndicator';
 import { Particles } from '../ui/Particles';
+import { usePageTracking } from '../../hooks/usePageTracking';
 
 interface DailyMotivationScreenProps {
     quote: Quote | null;
@@ -26,6 +27,7 @@ interface DailyMotivationScreenProps {
 }
 
 export const DailyMotivationScreen: React.FC<DailyMotivationScreenProps> = ({ quote, isLoading, onBack, onNavigateToProfile, isClosing, onLike, onShare, onExplore, likedQuoteId }) => {
+    usePageTracking('DailyMotivationScreen');
     const isExploding = likedQuoteId === quote?.id;
     
     const today = new Date();

@@ -4,6 +4,7 @@ import { Quote } from '../../types';
 import { HeartIcon, ShareIcon, SparkleIcon, CachedIcon } from '../Icons';
 import { ThinkingIndicator } from '../ui/ThinkingIndicator';
 import { Particles } from '../ui/Particles';
+import { usePageTracking } from '../../hooks/usePageTracking';
 
 interface QuoteCardProps {
     quote: Quote;
@@ -81,6 +82,7 @@ interface QuoteFeedProps {
 }
 
 export const QuoteFeed: React.FC<QuoteFeedProps> = ({ quotes, isLoading, onLike, onShare, onExplore, onRead, loadMore, likedQuoteId, onRefresh }) => {
+    usePageTracking('QuoteFeed');
     const containerRef = useRef<HTMLDivElement>(null);
     const loaderRef = useRef<HTMLDivElement>(null);
     const isLoadingMore = useRef(false);

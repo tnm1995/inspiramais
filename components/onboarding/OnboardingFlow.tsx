@@ -15,6 +15,7 @@ import { PersonalizeIntro3 } from './screens/PersonalizeIntro3';
 import { FeelingScreen } from './screens/FeelingScreen';
 import { FeelingReasonScreen } from './screens/FeelingReasonScreen';
 import { LandingPage } from '../landing/LandingPage';
+import { usePageTracking } from '../../hooks/usePageTracking';
 
 
 enum OnboardingStep {
@@ -47,6 +48,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, on
     const { updateUserData } = useUserData();
 
     const step = history[history.length - 1];
+
+    // Track onboarding steps as pages
+    usePageTracking(`Onboarding_${OnboardingStep[step]}`);
 
     const next = () => {
         setHistory(prev => [...prev, prev[prev.length - 1] + 1]);

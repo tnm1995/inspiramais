@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Quote } from '../../types';
 import { CloseIcon, SparkleIcon, LightbulbIcon, HeartIcon, TargetIcon, ChevronLeftIcon, ClipboardIcon, CheckIcon } from '../Icons';
 import { useUserData } from '../../context/UserDataContext';
 import { generateExploreSuggestions, generateExploreResponse } from '../../services/aiService';
 import { ThinkingIndicator } from '../ui/ThinkingIndicator';
+import { usePageTracking } from '../../hooks/usePageTracking';
 
 interface ExploreModalProps {
     quote: Quote;
@@ -18,6 +20,7 @@ interface StructuredResponse {
 }
 
 export const ExploreModal: React.FC<ExploreModalProps> = ({ quote, onClose, isClosing }) => {
+    usePageTracking('ExploreModal');
     const { userData } = useUserData();
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);

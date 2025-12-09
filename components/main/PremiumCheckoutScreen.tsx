@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { ChevronLeftIcon, CheckIcon, CrownIcon, ChevronDownIcon, LockIcon } from '../Icons';
 import { GradientButton } from '../ui/ContinueButton';
+import { usePageTracking } from '../../hooks/usePageTracking';
 
 interface PremiumCheckoutScreenProps {
     onBack: () => void;
@@ -43,6 +45,7 @@ const faqs = [
 ];
 
 export const PremiumCheckoutScreen: React.FC<PremiumCheckoutScreenProps> = ({ onBack, onPurchaseComplete, isClosing }) => {
+    usePageTracking('PremiumCheckoutScreen');
     const [isProcessing, setIsProcessing] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
     const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);

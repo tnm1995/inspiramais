@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { EmailIcon, LockIcon, UserCircleIcon, PhoneIcon, SparkleIcon, ArrowRightIcon, ChevronLeftIcon, GoogleIcon, CreditCardIcon, CheckIcon, CloseIcon, WarningIcon, CogIcon } from '../../Icons';
 import { LoginFormData, SignupFormData } from '../../../types';
+import { usePageTracking } from '../../../hooks/usePageTracking';
 
 interface LoginScreenProps {
     onLogin: (data: LoginFormData) => void;
@@ -11,6 +12,10 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onBack, onAdminAccess }) => {
     const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
+    
+    // Tracking active tab as a separate "page"
+    usePageTracking(activeTab === 'login' ? 'Login' : 'Signup');
+
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
@@ -343,7 +348,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onB
                                 <div className="flex justify-between items-center pt-1">
                                     <label className="flex items-center cursor-pointer group select-none">
                                         <div className={`w-4 h-4 rounded border transition-colors flex items-center justify-center ${rememberMe ? 'bg-violet-600 border-violet-600' : 'bg-transparent border-gray-600 group-hover:border-gray-400'}`}>
-                                            {rememberMe && <CheckIcon className="text-white text-[10px]" />}
+                                            {rememberMe && <CheckIcon className="text-white text-xs" />}
                                         </div>
                                         <input 
                                             type="checkbox" 

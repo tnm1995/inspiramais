@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { SparkleIcon, HeartIcon, CheckCircleIcon, CrownIcon, StarIcon, TrophyIcon, QuoteIcon, UserCircleIcon, FlameIcon, ArrowRightIcon, ChevronDownIcon } from '../Icons';
+import { usePageTracking } from '../../hooks/usePageTracking';
 
 interface LandingPageProps {
     onGetStarted: () => void;
@@ -87,6 +88,7 @@ const TestimonialCard: React.FC<{ text: string; author: string; label: string }>
 );
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginClick, onShowTerms, onShowPrivacy }) => {
+    usePageTracking('LandingPage');
     const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
     const toggleFaq = (index: number) => {
