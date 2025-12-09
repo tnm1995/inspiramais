@@ -1,8 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeftIcon, CheckIcon, CrownIcon, ChevronDownIcon, LockIcon } from '../Icons';
 import { GradientButton } from '../ui/ContinueButton';
 import { usePageTracking } from '../../hooks/usePageTracking';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
+import { AppConfig } from '../../types';
 
 interface PremiumCheckoutScreenProps {
     onBack: () => void;
@@ -49,6 +52,28 @@ export const PremiumCheckoutScreen: React.FC<PremiumCheckoutScreenProps> = ({ on
     const [isProcessing, setIsProcessing] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
     const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+    const [config, setConfig] = useState<AppConfig>({
+        monthlyPrice: '14,90',
+        annualPrice: '9,90',
+        annualTotal: '118,80',
+        checkoutLinkMonthly: '',
+        checkoutLinkAnnual: ''
+    });
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const docRef = doc(db, "settings", "appConfig");
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    setConfig(docSnap.data() as AppConfig);
+                }
+            } catch (error) {
+                console.error("Error loading pricing config", error);
+            }
+        };
+        fetchConfig();
+    }, []);
 
     const toggleFaq = (index: number) => {
         setOpenFaqIndex(openFaqIndex === index ? null : index);
@@ -57,15 +82,20 @@ export const PremiumCheckoutScreen: React.FC<PremiumCheckoutScreenProps> = ({ on
     const handleContinue = () => {
         setIsProcessing(true);
         
-        // Simulation of Web Checkout Redirect
-        // In a real scenario, this would be: window.open('https://pay.hotmart.com/...', '_blank');
-        console.log(`Redirecting to checkout for plan: ${selectedPlan}`);
+        const link = selectedPlan === 'annual' ? config.checkoutLinkAnnual : config.checkoutLinkMonthly;
+
+        if (link && link.startsWith('http')) {
+            window.open(link, '_blank');
+        } else {
+            console.log("No valid checkout link configured. Simulating flow.");
+        }
         
         // Simulating the user coming back after purchase for the prototype
+        // In real app, user might manually click "I paid" or webhook handles it
         setTimeout(() => {
             onPurchaseComplete();
             setIsProcessing(false);
-        }, 2000);
+        }, 3000);
     };
 
     return (
@@ -120,10 +150,10 @@ export const PremiumCheckoutScreen: React.FC<PremiumCheckoutScreenProps> = ({ on
 
                         <div className="pl-9 relative z-10">
                              <div className="flex items-baseline gap-1">
-                                <span className={`text-3xl font-bold font-sans ${selectedPlan === 'annual' ? 'text-white' : 'text-gray-300'}`}>R$ 9,90</span>
+                                <span className={`text-3xl font-bold font-sans ${selectedPlan === 'annual' ? 'text-white' : 'text-gray-300'}`}>R$ {config.annualPrice}</span>
                                 <span className="text-sm text-gray-400 font-medium">/mês</span>
                             </div>
-                            <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-wide">Total de R$ 118,80 por ano</p>
+                            <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-wide">Total de R$ {config.annualTotal} por ano</p>
                         </div>
                     </button>
 
@@ -149,7 +179,7 @@ export const PremiumCheckoutScreen: React.FC<PremiumCheckoutScreenProps> = ({ on
 
                         <div className="pl-9 relative z-10">
                              <div className="flex items-baseline gap-1">
-                                <span className={`text-2xl font-bold font-sans ${selectedPlan === 'monthly' ? 'text-white' : 'text-gray-300'}`}>R$ 14,90</span>
+                                <span className={`text-2xl font-bold font-sans ${selectedPlan === 'monthly' ? 'text-white' : 'text-gray-300'}`}>R$ {config.monthlyPrice}</span>
                                 <span className="text-sm text-gray-400 font-medium">/mês</span>
                             </div>
                             <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-wide">Cobrado mensalmente</p>
@@ -210,7 +240,7 @@ export const PremiumCheckoutScreen: React.FC<PremiumCheckoutScreenProps> = ({ on
                 <GradientButton 
                     onClick={handleContinue} 
                     disabled={isProcessing}
-                    text={isProcessing ? 'Processando...' : `Ir para Pagamento Seguro`} 
+                    text={isProcessing ? 'Abrindo Pagamento...' : `Ir para Pagamento Seguro`} 
                     aria-label={isProcessing ? 'Processando redirecionamento' : "Ir para o checkout"}
                 />
                 <div className="flex items-center justify-center gap-2 mt-4 opacity-70">

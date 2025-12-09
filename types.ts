@@ -73,3 +73,11 @@ export interface SignupFormData extends LoginFormData {
   phone?: string;
   cpf: string;
 }
+
+export interface AppConfig {
+    monthlyPrice: string;
+    annualPrice: string; // Price per month in annual plan (e.g. "9,90")
+    annualTotal: string; // Total annual price (e.g. "118,80")
+    checkoutLinkMonthly: string;
+    checkoutLinkAnnual: string;
+}

@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon } from '../Icons';
-import { UserData } from '../../types';
+import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon } from '../Icons';
+import { UserData, AppConfig } from '../../types';
 import { db } from '../../firebaseConfig';
-import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
 import { usePageTracking } from '../../hooks/usePageTracking';
 
@@ -25,6 +25,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     
+    // Config State
+    const [appConfig, setAppConfig] = useState<AppConfig>({
+        monthlyPrice: '14,90',
+        annualPrice: '9,90',
+        annualTotal: '118,80',
+        checkoutLinkMonthly: '',
+        checkoutLinkAnnual: ''
+    });
+    const [isSavingConfig, setIsSavingConfig] = useState(false);
+
     // Create User Form State
     const [newUserEmail, setNewUserEmail] = useState('');
     const [newUserPassword, setNewUserPassword] = useState('');
@@ -33,7 +43,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
 
     useEffect(() => {
         loadUsers();
+        loadConfig();
     }, []);
+
+    const loadConfig = async () => {
+        try {
+            const docRef = doc(db, "settings", "appConfig");
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setAppConfig(docSnap.data() as AppConfig);
+            }
+        } catch (error) {
+            console.error("Error loading config:", error);
+        }
+    };
+
+    const saveConfig = async () => {
+        setIsSavingConfig(true);
+        try {
+            await setDoc(doc(db, "settings", "appConfig"), appConfig);
+            setToastMessage({ message: "Configurações da loja salvas!", type: 'success' });
+        } catch (error) {
+            console.error("Error saving config:", error);
+            setToastMessage({ message: "Erro ao salvar configurações.", type: 'error' });
+        } finally {
+            setIsSavingConfig(false);
+        }
+    };
 
     const loadUsers = async () => {
         setIsLoading(true);
@@ -42,8 +78,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             const loadedUsers: AdminUser[] = [];
             querySnapshot.forEach((doc) => {
                 const data = doc.data() as UserData;
-                // Note: Email is not strictly in UserData interface usually, but useful to store there for Admin display if Auth list isn't accessible.
-                // For this implementation, we rely on 'name' mainly, or if you saved email in UserData.
                 loadedUsers.push({ id: doc.id, email: (data as any).email || 'No Email', data });
             });
             setUsers(loadedUsers);
@@ -123,8 +157,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         const auth = getAuth();
         try {
             await signOut(auth);
-            // App state will react to auth change
-            onClose(); // Close panel
+            onClose(); 
         } catch (error) {
             console.error("Logout error", error);
         }
@@ -150,7 +183,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                 isAdmin: false,
                 subscriptionExpiry: newUserPremium ? expiryDate.toISOString() : undefined,
                 name: newUserName,
-                // @ts-ignore - storing email for admin usage
+                // @ts-ignore
                 email: newUserEmail, 
                 stats: {
                     xp: 0,
@@ -196,7 +229,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                     </div>
                     <div>
                         <h1 className="text-xl font-bold font-serif">Admin</h1>
-                        <p className="text-xs text-gray-400">Firebase Firestore</p>
+                        <p className="text-xs text-gray-400">Painel de Controle</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -214,110 +247,191 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             </header>
 
             {/* Content */}
-            <main className="flex-grow overflow-y-auto p-6">
+            <main className="flex-grow overflow-y-auto p-6 space-y-8">
                 
-                {/* Actions Bar */}
-                <div className="flex flex-col md:flex-row justify-between gap-4 mb-8">
-                    <input 
-                        type="text" 
-                        placeholder="Buscar por nome ou e-mail..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 w-full md:w-96"
-                    />
-                    <button 
-                        onClick={() => setShowCreateModal(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
-                    >
-                        <span>+ Criar Conta</span>
-                    </button>
-                </div>
-
-                {isLoading && <div className="text-center py-4">Carregando dados do Firestore...</div>}
-
-                {/* Users List */}
-                <div className="space-y-4">
-                    {!isLoading && filteredUsers.length === 0 ? (
-                        <div className="text-center text-gray-500 py-10">Nenhum usuário encontrado.</div>
-                    ) : (
-                        filteredUsers.map((user) => (
-                            <div key={user.id} className="bg-[#111] border border-white/5 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:border-white/10 transition-colors">
-                                
-                                {/* User Info */}
-                                <div className="flex items-center gap-4 min-w-[250px]">
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${user.data.isPremium ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white' : 'bg-gray-800 text-gray-400'}`}>
-                                        {user.data.name ? user.data.name.charAt(0).toUpperCase() : '?'}
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-white flex items-center gap-2">
-                                            {user.data.name || 'Sem nome'}
-                                            {user.data.isPremium && <CrownIcon className="text-amber-500 text-xs" />}
-                                            {user.data.isAdmin && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 rounded-full border border-indigo-500/30">ADMIN</span>}
-                                        </h3>
-                                        <p className="text-sm text-gray-400">{user.email || user.id}</p>
-                                    </div>
+                {/* Store Settings Section */}
+                <section className="bg-[#111] border border-white/10 rounded-2xl p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <CreditCardIcon className="text-amber-500 text-xl" />
+                        <h2 className="text-lg font-bold">Configuração da Loja (Checkout)</h2>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-bold text-gray-500 uppercase">Preços (Exibição)</h3>
+                            <div>
+                                <label className="block text-xs text-gray-400 mb-1">Preço Mensal (R$)</label>
+                                <input 
+                                    type="text" 
+                                    value={appConfig.monthlyPrice}
+                                    onChange={(e) => setAppConfig({...appConfig, monthlyPrice: e.target.value})}
+                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                                />
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="block text-xs text-gray-400 mb-1">Preço Anual/Mês (R$)</label>
+                                    <input 
+                                        type="text" 
+                                        value={appConfig.annualPrice}
+                                        onChange={(e) => setAppConfig({...appConfig, annualPrice: e.target.value})}
+                                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                                    />
                                 </div>
-
-                                {/* Status */}
-                                <div className="min-w-[150px]">
-                                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Status</p>
-                                    {user.data.isPremium ? (
-                                        <div className="flex flex-col">
-                                            <span className="text-amber-400 font-bold text-sm">Premium Ativo</span>
-                                            <span className="text-xs text-gray-400">Expira: {formatDate(user.data.subscriptionExpiry)}</span>
-                                        </div>
-                                    ) : (
-                                        <span className="text-gray-400 font-bold text-sm">Gratuito</span>
-                                    )}
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <div className="flex items-center bg-black/30 rounded-lg p-1 border border-white/5">
-                                        <button 
-                                            onClick={() => handleRenew(user.id, 'month')}
-                                            className="px-3 py-2 text-xs font-bold text-green-400 hover:bg-green-500/10 rounded-md transition-colors"
-                                            title="Adicionar 1 Mês"
-                                        >
-                                            +1 Mês
-                                        </button>
-                                        <div className="w-px h-4 bg-white/10 mx-1"></div>
-                                        <button 
-                                            onClick={() => handleRenew(user.id, 'year')}
-                                            className="px-3 py-2 text-xs font-bold text-green-400 hover:bg-green-500/10 rounded-md transition-colors"
-                                            title="Adicionar 1 Ano"
-                                        >
-                                            +1 Ano
-                                        </button>
-                                    </div>
-
-                                    {/* Admin Toggle */}
-                                    <button 
-                                        onClick={() => handleToggleAdmin(user.id, user.data.isAdmin)}
-                                        className={`px-3 py-2 text-xs font-bold rounded-lg border transition-colors ${user.data.isAdmin ? 'text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10' : 'text-gray-500 border-gray-700 hover:text-white hover:border-gray-500'}`}
-                                    >
-                                        {user.data.isAdmin ? 'Remover Admin' : 'Tornar Admin'}
-                                    </button>
-
-                                    {user.data.isPremium && (
-                                        <button 
-                                            onClick={() => handleCancel(user.id)}
-                                            className="px-4 py-2 text-xs font-bold text-amber-500 hover:bg-amber-500/10 rounded-lg border border-amber-500/30 transition-colors"
-                                        >
-                                            Cancelar
-                                        </button>
-                                    )}
-
-                                    <button 
-                                        onClick={() => handleDelete(user.id)}
-                                        className="px-4 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-lg border border-red-500/30 transition-colors ml-2"
-                                    >
-                                        Excluir
-                                    </button>
+                                <div className="flex-1">
+                                    <label className="block text-xs text-gray-400 mb-1">Total Anual (R$)</label>
+                                    <input 
+                                        type="text" 
+                                        value={appConfig.annualTotal}
+                                        onChange={(e) => setAppConfig({...appConfig, annualTotal: e.target.value})}
+                                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                                    />
                                 </div>
                             </div>
-                        ))
-                    )}
+                        </div>
+
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-bold text-gray-500 uppercase">Links de Checkout</h3>
+                            <div>
+                                <label className="block text-xs text-gray-400 mb-1">Link Checkout Mensal (https://...)</label>
+                                <input 
+                                    type="text" 
+                                    value={appConfig.checkoutLinkMonthly}
+                                    onChange={(e) => setAppConfig({...appConfig, checkoutLinkMonthly: e.target.value})}
+                                    placeholder="Ex: https://pay.hotmart.com/..."
+                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-gray-400 mb-1">Link Checkout Anual (https://...)</label>
+                                <input 
+                                    type="text" 
+                                    value={appConfig.checkoutLinkAnnual}
+                                    onChange={(e) => setAppConfig({...appConfig, checkoutLinkAnnual: e.target.value})}
+                                    placeholder="Ex: https://pay.kiwify.com.br/..."
+                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="mt-6 text-right">
+                        <button 
+                            onClick={saveConfig}
+                            disabled={isSavingConfig}
+                            className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-2 rounded-lg transition-colors"
+                        >
+                            {isSavingConfig ? "Salvando..." : "Salvar Configurações"}
+                        </button>
+                    </div>
+                </section>
+
+                <div className="border-t border-white/10 pt-4">
+                    <h2 className="text-lg font-bold mb-4">Gestão de Usuários</h2>
+                    
+                    {/* Actions Bar */}
+                    <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
+                        <input 
+                            type="text" 
+                            placeholder="Buscar por nome ou e-mail..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 w-full md:w-96"
+                        />
+                        <button 
+                            onClick={() => setShowCreateModal(true)}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+                        >
+                            <span>+ Criar Conta</span>
+                        </button>
+                    </div>
+
+                    {isLoading && <div className="text-center py-4">Carregando dados do Firestore...</div>}
+
+                    {/* Users List */}
+                    <div className="space-y-4">
+                        {!isLoading && filteredUsers.length === 0 ? (
+                            <div className="text-center text-gray-500 py-10">Nenhum usuário encontrado.</div>
+                        ) : (
+                            filteredUsers.map((user) => (
+                                <div key={user.id} className="bg-[#111] border border-white/5 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:border-white/10 transition-colors">
+                                    
+                                    {/* User Info */}
+                                    <div className="flex items-center gap-4 min-w-[250px]">
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${user.data.isPremium ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white' : 'bg-gray-800 text-gray-400'}`}>
+                                            {user.data.name ? user.data.name.charAt(0).toUpperCase() : '?'}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-white flex items-center gap-2">
+                                                {user.data.name || 'Sem nome'}
+                                                {user.data.isPremium && <CrownIcon className="text-amber-500 text-xs" />}
+                                                {user.data.isAdmin && <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 rounded-full border border-indigo-500/30">ADMIN</span>}
+                                            </h3>
+                                            <p className="text-sm text-gray-400">{user.email || user.id}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Status */}
+                                    <div className="min-w-[150px]">
+                                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Status</p>
+                                        {user.data.isPremium ? (
+                                            <div className="flex flex-col">
+                                                <span className="text-amber-400 font-bold text-sm">Premium Ativo</span>
+                                                <span className="text-xs text-gray-400">Expira: {formatDate(user.data.subscriptionExpiry)}</span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-400 font-bold text-sm">Gratuito</span>
+                                        )}
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <div className="flex items-center bg-black/30 rounded-lg p-1 border border-white/5">
+                                            <button 
+                                                onClick={() => handleRenew(user.id, 'month')}
+                                                className="px-3 py-2 text-xs font-bold text-green-400 hover:bg-green-500/10 rounded-md transition-colors"
+                                                title="Adicionar 1 Mês"
+                                            >
+                                                +1 Mês
+                                            </button>
+                                            <div className="w-px h-4 bg-white/10 mx-1"></div>
+                                            <button 
+                                                onClick={() => handleRenew(user.id, 'year')}
+                                                className="px-3 py-2 text-xs font-bold text-green-400 hover:bg-green-500/10 rounded-md transition-colors"
+                                                title="Adicionar 1 Ano"
+                                            >
+                                                +1 Ano
+                                            </button>
+                                        </div>
+
+                                        {/* Admin Toggle */}
+                                        <button 
+                                            onClick={() => handleToggleAdmin(user.id, user.data.isAdmin)}
+                                            className={`px-3 py-2 text-xs font-bold rounded-lg border transition-colors ${user.data.isAdmin ? 'text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10' : 'text-gray-500 border-gray-700 hover:text-white hover:border-gray-500'}`}
+                                        >
+                                            {user.data.isAdmin ? 'Remover Admin' : 'Tornar Admin'}
+                                        </button>
+
+                                        {user.data.isPremium && (
+                                            <button 
+                                                onClick={() => handleCancel(user.id)}
+                                                className="px-4 py-2 text-xs font-bold text-amber-500 hover:bg-amber-500/10 rounded-lg border border-amber-500/30 transition-colors"
+                                            >
+                                                Cancelar
+                                            </button>
+                                        )}
+
+                                        <button 
+                                            onClick={() => handleDelete(user.id)}
+                                            className="px-4 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 rounded-lg border border-red-500/30 transition-colors ml-2"
+                                        >
+                                            Excluir
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
             </main>
 
