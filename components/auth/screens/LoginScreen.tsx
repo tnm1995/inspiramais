@@ -8,10 +8,9 @@ interface LoginScreenProps {
     onSignup: (data: SignupFormData) => void;
     onGoogleLogin?: () => void;
     onBack?: () => void;
-    onAdminAccess?: () => void; // New prop for admin access
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onGoogleLogin, onBack, onAdminAccess }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onGoogleLogin, onBack }) => {
     const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
     
     // Tracking active tab as a separate "page"
@@ -413,21 +412,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                     </div>
                 </div>
 
-                {/* Footer Link + Admin Access */}
+                {/* Footer Link */}
                 <div className={`text-center mt-6 mb-4 flex-shrink-0 transition-opacity duration-300 ${isSuccess ? 'opacity-0' : 'opacity-100'}`}>
                      <p className="text-xs text-gray-600">
                         Ao continuar, você concorda com nossos <br/> Termos de Uso e Política de Privacidade.
                     </p>
-                    
-                    {/* Admin Trigger */}
-                    {onAdminAccess && (
-                        <button 
-                            onClick={onAdminAccess}
-                            className="mt-6 text-[10px] text-gray-700 hover:text-gray-500 flex items-center justify-center gap-1 mx-auto opacity-50 hover:opacity-100 transition-all"
-                        >
-                            <CogIcon className="text-sm" /> Admin
-                        </button>
-                    )}
                 </div>
 
             </div>

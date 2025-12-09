@@ -29,6 +29,7 @@ const ShareModal = lazy(() => import('./components/main/ShareModal').then(module
 const GamificationModal = lazy(() => import('./components/gamification/GamificationModal').then(module => ({ default: module.GamificationModal })));
 const LevelUpModal = lazy(() => import('./components/gamification/LevelUpModal').then(module => ({ default: module.LevelUpModal })));
 
+const ADMIN_EMAIL = "admin@inspiramais.com";
 
 type ToastMessage = {
     message: string;
@@ -47,7 +48,7 @@ const triggerHapticFeedback = (pattern: number | number[] = 30) => {
 
 const AppContent = () => {
     const { userData, updateUserData, loading: isUserDataLoading, completeQuest, initializeUser } = useUserData();
-    const { login, signup, loginWithGoogle, logout, isAuthenticated, isLoading: isAuthLoading, authError } = useAuth();
+    const { login, signup, loginWithGoogle, logout, isAuthenticated, isLoading: isAuthLoading, authError, currentUser } = useAuth();
     const [needsMoodCheckin, setNeedsMoodCheckin] = useState(false);
     
     // Login Flow State
@@ -99,6 +100,9 @@ const AppContent = () => {
     
     // Strict Access Control Check
     const hasActiveAccess = useMemo(() => {
+        // Admins always have access
+        if (showAdmin) return true;
+        
         if (!userData) return false;
         
         // 1. Must be marked as Premium
@@ -112,7 +116,7 @@ const AppContent = () => {
         }
 
         return true;
-    }, [userData]);
+    }, [userData, showAdmin]);
 
     const isSharePage = useMemo(() => new URLSearchParams(window.location.search).get('share') === 'true', []);
 
@@ -122,6 +126,16 @@ const AppContent = () => {
              setToastMessage({ message: authError, type: 'error' });
         }
     }, [authError]);
+
+    // Admin Access Check
+    useEffect(() => {
+        if (currentUser && currentUser.email === ADMIN_EMAIL) {
+            setShowAdmin(true);
+            setShowLogin(false);
+        } else {
+            setShowAdmin(false);
+        }
+    }, [currentUser]);
 
     // Handle Post-Auth Data Initialization
     useEffect(() => {
@@ -508,6 +522,7 @@ const AppContent = () => {
         setShowLogin(true);
         setShowProfile(false);
         setIsProfileClosing(false);
+        setShowAdmin(false);
         logout();
     }, [logout]);
 
@@ -549,7 +564,6 @@ const AppContent = () => {
                 onSignup={handleSignupSubmit}
                 onGoogleLogin={handleGoogleLogin}
                 onBack={() => setShowLogin(false)}
-                onAdminAccess={() => setShowAdmin(true)}
             />
         );
     }
