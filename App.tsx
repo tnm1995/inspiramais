@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { UserDataProvider, useUserData } from './context/UserDataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { Quote, DailyMotivation, UserStats } from './types';
-import { UserCircleIcon, CheckIcon, WarningIcon, FilterIcon, SunnyIcon, TrophyIcon, FlameIcon, CrownIcon } from './components/Icons';
+import { UserCircleIcon, CheckIcon, WarningIcon, FilterIcon, SunnyIcon, TrophyIcon, FlameIcon, CrownIcon, LogoutIcon } from './components/Icons';
 import { SharePage } from './components/main/SharePage';
 import { QuotaExceededError, generateQuotesFromAI, generateDailyMotivation, fallbackQuotes } from './services/aiService';
 import { MoodCheckinScreen } from './components/main/MoodCheckinScreen';
@@ -571,8 +572,24 @@ const AppContent = () => {
         </>
     );
     
-    // Fallback: Authenticated but no user data? (Should be handled by loading state, but safe guard)
-    if (!userData) return <div className="h-full w-full bg-black"></div>;
+    // Fallback: Authenticated but no user data? (Race condition or failed creation)
+    if (!userData) {
+        return (
+            <div className="h-full w-full bg-black flex flex-col items-center justify-center text-white p-6 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500 mb-6"></div>
+                <h2 className="text-xl font-bold mb-2">Preparando seu perfil...</h2>
+                <p className="text-gray-400 mb-8">Isso pode levar alguns segundos na primeira vez.</p>
+                
+                <button 
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-sm font-bold"
+                >
+                    <LogoutIcon className="text-red-400" />
+                    Tentar Novamente (Sair)
+                </button>
+            </div>
+        );
+    }
 
 
     // 1. BLOCKING EXPIRED SCREEN - The Gatekeeper
