@@ -187,16 +187,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 
             <div className="relative z-10 w-full max-w-md h-full flex flex-col justify-center">
                 
-                {/* Header Logo */}
-                <div className={`flex flex-col items-center mb-6 flex-shrink-0 transition-all duration-500 ease-out ${isSuccess ? 'scale-0 opacity-0' : 'scale-100 opacity-100 animate-slide-in-up'}`}>
-                    <div className="w-16 h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(124,58,237,0.4)] mb-4 transform rotate-3">
+                {/* Header Logo - Reduced margin for mobile optimization */}
+                <div className={`flex flex-col items-center mb-4 flex-shrink-0 transition-all duration-500 ease-out ${isSuccess ? 'scale-0 opacity-0' : 'scale-100 opacity-100 animate-slide-in-up'}`}>
+                    <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(124,58,237,0.4)] mb-3 md:mb-4 transform rotate-3">
                         <SparkleIcon className="text-3xl text-white" />
                     </div>
-                    <h1 className="text-3xl font-bold font-sora tracking-tight">Inspira<span className="text-violet-500">+</span></h1>
+                    <h1 className="text-2xl md:text-3xl font-bold font-sora tracking-tight">Inspira<span className="text-violet-500">+</span></h1>
                 </div>
 
-                {/* Glass Card */}
-                <div className="bg-[#111]/80 backdrop-blur-xl border border-white/10 p-6 md:p-8 rounded-3xl shadow-2xl overflow-y-auto max-h-[75vh] scrollbar-hide relative transition-all duration-500 animate-slide-in-up" style={{ animationDelay: '100ms' }}>
+                {/* Glass Card - Increased max-height for better mobile layout */}
+                <div className="bg-[#111]/80 backdrop-blur-xl border border-white/10 p-5 md:p-8 rounded-3xl shadow-2xl overflow-y-auto max-h-[90vh] scrollbar-hide relative transition-all duration-500 animate-slide-in-up flex flex-col" style={{ animationDelay: '100ms' }}>
                     
                     {/* Success Overlay */}
                     {isSuccess && (
@@ -217,10 +217,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         </div>
                     )}
 
-                    <div className={`transition-opacity duration-300 ${isSuccess ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                    <div className={`transition-opacity duration-300 w-full ${isSuccess ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                         
-                        {/* Toggle Switch */}
-                        <div className="flex p-1 bg-black/40 rounded-xl mb-6 relative border border-white/5 flex-shrink-0">
+                        {/* Toggle Switch - Reduced margin */}
+                        <div className="flex p-1 bg-black/40 rounded-xl mb-4 relative border border-white/5 flex-shrink-0">
                             <div 
                                 className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-violet-600 rounded-lg transition-all duration-300 ease-spring shadow-lg ${activeTab === 'login' ? 'left-1' : 'left-[calc(50%+4px)]'}`}
                             ></div>
@@ -238,10 +238,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
                             
-                            {/* Signup Specific Fields - Smooth Collapsible Transition with improved timing */}
-                            <div className={`space-y-4 overflow-hidden transition-all duration-500 ease-in-out ${activeTab === 'signup' ? 'max-h-[350px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-4'}`}>
+                            {/* Signup Specific Fields - Increased Max-Height to prevent cutting off */}
+                            <div className={`space-y-3 md:space-y-4 overflow-hidden transition-all duration-500 ease-in-out ${activeTab === 'signup' ? 'max-h-[500px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-4'}`}>
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <UserCircleIcon className="text-gray-500 group-focus-within:text-violet-400 transition-colors" />
@@ -254,7 +254,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                         placeholder="Nome completo" 
                                         required={activeTab === 'signup'}
                                         tabIndex={activeTab === 'signup' ? 0 : -1}
-                                        className="w-full py-3.5 pl-12 pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
+                                        className="w-full py-3 md:py-3.5 pl-12 pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
                                     />
                                 </div>
                                 
@@ -271,7 +271,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                         required={activeTab === 'signup'}
                                         tabIndex={activeTab === 'signup' ? 0 : -1}
                                         maxLength={14}
-                                        className={`w-full py-3.5 pl-12 pr-4 bg-black/30 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:bg-black/50 transition-all text-sm md:text-base ${getCpfBorderClass()}`} 
+                                        className={`w-full py-3 md:py-3.5 pl-12 pr-4 bg-black/30 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:bg-black/50 transition-all text-sm md:text-base ${getCpfBorderClass()}`} 
                                     />
                                      {formData.cpf.length === 14 && !isCpfValid && activeTab === 'signup' && (
                                         <div className="absolute right-3 top-3.5 text-red-500 animate-pulse">
@@ -295,7 +295,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                         placeholder="(00) 00000-0000" 
                                         required={activeTab === 'signup'}
                                         tabIndex={activeTab === 'signup' ? 0 : -1}
-                                        className="w-full py-3.5 pl-[85px] pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
+                                        className="w-full py-3 md:py-3.5 pl-[85px] pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
                                     />
                                 </div>
                             </div>
@@ -312,7 +312,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                     onChange={handleChange} 
                                     placeholder="E-mail" 
                                     required 
-                                    className="w-full py-3.5 pl-12 pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
+                                    className="w-full py-3 md:py-3.5 pl-12 pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
                                 />
                             </div>
 
@@ -327,7 +327,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                     onChange={handleChange} 
                                     placeholder="Senha" 
                                     required 
-                                    className="w-full py-3.5 pl-12 pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
+                                    className="w-full py-3 md:py-3.5 pl-12 pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
                                 />
                             </div>
 
@@ -378,7 +378,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                 <button
                                     type="submit"
                                     disabled={activeTab === 'login' ? isLoginButtonDisabled : isSignupButtonDisabled}
-                                    className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(124,58,237,0.3)] hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                                    className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-3.5 md:py-4 rounded-xl shadow-[0_0_20px_rgba(124,58,237,0.3)] hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                                 >
                                     {isSubmitting ? (
                                         <span>Processando...</span>
@@ -393,8 +393,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         </form>
                         
                         {/* Google Login Section */}
-                        <div>
-                            <div className="flex items-center gap-4 my-6">
+                        <div className="mt-4 md:mt-6">
+                            <div className="flex items-center gap-4 mb-4 md:mb-6">
                                 <div className="h-px bg-white/10 flex-1"></div>
                                 <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Ou continue com</span>
                                 <div className="h-px bg-white/10 flex-1"></div>
@@ -413,7 +413,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                 </div>
 
                 {/* Footer Link */}
-                <div className={`text-center mt-6 mb-4 flex-shrink-0 transition-opacity duration-300 ${isSuccess ? 'opacity-0' : 'opacity-100'}`}>
+                <div className={`text-center mt-4 md:mt-6 mb-4 flex-shrink-0 transition-opacity duration-300 ${isSuccess ? 'opacity-0' : 'opacity-100'}`}>
                      <p className="text-xs text-gray-600">
                         Ao continuar, você concorda com nossos <br/> Termos de Uso e Política de Privacidade.
                     </p>
