@@ -8,7 +8,6 @@ import { UserCircleIcon, CheckIcon, WarningIcon, FilterIcon, SunnyIcon, TrophyIc
 import { SharePage } from './components/main/SharePage';
 import { QuotaExceededError, generateQuotesFromAI, generateDailyMotivation, fallbackQuotes } from './services/aiService';
 import { MoodCheckinScreen } from './components/main/MoodCheckinScreen';
-import { LoginFlow } from './components/auth/LoginFlow';
 import { QuoteFeed } from './components/main/QuoteFeed';
 import { LoginScreen } from './components/auth/screens/LoginScreen';
 import { LoginFormData, SignupFormData } from './types';
@@ -18,6 +17,8 @@ import { AdminPanel } from './components/admin/AdminPanel';
 import { SubscriptionExpiredScreen } from './components/main/SubscriptionExpiredScreen';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
+import { User } from 'firebase/auth';
+import { GoogleCpfScreen } from './components/auth/screens/GoogleCpfScreen';
 
 
 // Lazy load components
@@ -47,13 +48,16 @@ const triggerHapticFeedback = (pattern: number | number[] = 30) => {
 
 const AppContent = () => {
     const { userData, updateUserData, loading: isUserDataLoading, completeQuest, initializeUser } = useUserData();
-    const { login, signup, loginWithGoogle, logout, isAuthenticated, isLoading: isAuthLoading, authError, currentUser } = useAuth();
+    const { login, signup, loginWithGoogle, logout, isAuthenticated, isLoading: isAuthLoading, authError } = useAuth();
     const [needsMoodCheckin, setNeedsMoodCheckin] = useState(false);
     
     // Login Flow State
     const [showLogin, setShowLogin] = useState(false);
     const [authAction, setAuthAction] = useState<'login' | 'signup' | null>(null);
     const [tempSignupData, setTempSignupData] = useState<SignupFormData | null>(null);
+    
+    // Google Auth Pending State (waiting for CPF)
+    const [pendingGoogleUser, setPendingGoogleUser] = useState<User | null>(null);
     
     // Legal Screens State
     const [showTerms, setShowTerms] = useState(false);
@@ -130,12 +134,14 @@ const AppContent = () => {
     // Handle Post-Auth Data Initialization
     useEffect(() => {
         // If we just signed up and are authenticated, we need to initialize user data in Firestore
+        // Note: This logic is for email/password signup. Google logic is handled separately below.
         if (authAction === 'signup' && isAuthenticated && tempSignupData && !isUserDataLoading) {
             
             // Initialize Firestore Document
             initializeUser({
                 name: tempSignupData.name,
                 onboardingComplete: true,
+                cpf: tempSignupData.cpf, // Save CPF
                 // In real app, store phone/CPF secure hash or in a separate secure collection if needed
                 // For this demo we just initialize the basic profile
             }).then(() => {
@@ -145,7 +151,7 @@ const AppContent = () => {
                 setShowLogin(false);
             });
 
-        } else if (authAction === 'login' && isAuthenticated && !isUserDataLoading) {
+        } else if (authAction === 'login' && isAuthenticated && !isUserDataLoading && !pendingGoogleUser) {
             // Login successful
             // Ensure onboarding is marked if it was missing (migration)
             if (userData && !userData.onboardingComplete) {
@@ -156,7 +162,7 @@ const AppContent = () => {
             setAuthAction(null);
             setShowLogin(false);
         }
-    }, [authAction, isAuthenticated, isUserDataLoading, tempSignupData, initializeUser, userData, updateUserData]);
+    }, [authAction, isAuthenticated, isUserDataLoading, tempSignupData, initializeUser, userData, updateUserData, pendingGoogleUser]);
 
 
     // Fetch Daily Motivation (Restored)
@@ -486,20 +492,37 @@ const AppContent = () => {
             const docSnap = await getDoc(userDocRef);
 
             if (!docSnap.exists()) {
-                // New user via Google, initialize default data
-                await initializeUser({
-                    name: user.displayName || 'Usuária',
-                    email: user.email || undefined,
-                    onboardingComplete: true
-                }, user.uid); // Pass UID explicitly to prevent race condition
-                setToastMessage({ message: `Conta criada com sucesso!`, type: 'success' });
+                // New user via Google - INTERCEPT HERE
+                // Set pending state to show CPF screen
+                setPendingGoogleUser(user);
             } else {
                  setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
+                 setShowLogin(false);
             }
-            setShowLogin(false);
         } catch (error) {
             console.error("Google Login Handled Error:", error);
         }
+    };
+
+    const handleFinalizeGoogleSignup = async (cpf: string) => {
+        if (!pendingGoogleUser) return;
+
+        await initializeUser({
+            name: pendingGoogleUser.displayName || 'Usuária',
+            email: pendingGoogleUser.email || undefined,
+            onboardingComplete: true,
+            cpf: cpf
+        }, pendingGoogleUser.uid);
+
+        setToastMessage({ message: `Conta criada com sucesso!`, type: 'success' });
+        setPendingGoogleUser(null);
+        setShowLogin(false);
+    };
+
+    const handleCancelGoogleSignup = () => {
+        setPendingGoogleUser(null);
+        logout(); // Force logout as they are authenticated in firebase but not in our app logic
+        setToastMessage({ message: `Cadastro cancelado.`, type: 'error' });
     };
 
     const handleLogout = useCallback(() => {
@@ -508,6 +531,7 @@ const AppContent = () => {
         setShowProfile(false);
         setIsProfileClosing(false);
         setShowAdmin(false);
+        setPendingGoogleUser(null);
         logout();
     }, [logout]);
 
@@ -540,6 +564,16 @@ const AppContent = () => {
     // Routing Logic
     if (showAdmin) {
         return <AdminPanel onClose={() => setShowAdmin(false)} setToastMessage={setToastMessage} />;
+    }
+
+    // Intercept with Google CPF Screen
+    if (pendingGoogleUser) {
+        return (
+            <GoogleCpfScreen 
+                onConfirm={handleFinalizeGoogleSignup}
+                onCancel={handleCancelGoogleSignup}
+            />
+        );
     }
 
     if (showLogin) {

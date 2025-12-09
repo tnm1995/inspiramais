@@ -8,6 +8,8 @@ export interface UserData {
   age?: string;
   name?: string;
   email?: string; // Field for user email persistence
+  phone?: string;
+  cpf?: string;
   gender?: string;
   relationshipStatus?: string;
   isReligious?: string;
