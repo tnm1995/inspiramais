@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { CreditCardIcon, SparkleIcon, ArrowRightIcon, WarningIcon, LogoutIcon } from '../../Icons';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebaseConfig';
+import { validateCPF, cleanCPF, formatCPF } from '../../../utils/validators';
 
 interface GoogleCpfScreenProps {
     onConfirm: (cpf: string) => void;
@@ -15,39 +16,6 @@ export const GoogleCpfScreen: React.FC<GoogleCpfScreenProps> = ({ onConfirm, onC
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const formatCPF = (value: string) => {
-        return value
-            .replace(/\D/g, '')
-            .replace(/(\d{3})(\d)/, '$1.$2')
-            .replace(/(\d{3})(\d)/, '$1.$2')
-            .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-            .replace(/(-\d{2})\d+?$/, '$1');
-    };
-
-    const validateCPF = (cpf: string): boolean => {
-        const strCPF = cpf.replace(/[^\d]+/g, '');
-        if (strCPF.length !== 11) return false;
-        if (/^(\d)\1+$/.test(strCPF)) return false;
-
-        let sum = 0;
-        let remainder;
-
-        for (let i = 1; i <= 9; i++) sum = sum + parseInt(strCPF.substring(i - 1, i)) * (11 - i);
-        remainder = (sum * 10) % 11;
-
-        if ((remainder === 10) || (remainder === 11)) remainder = 0;
-        if (remainder !== parseInt(strCPF.substring(9, 10))) return false;
-
-        sum = 0;
-        for (let i = 1; i <= 10; i++) sum = sum + parseInt(strCPF.substring(i - 1, i)) * (12 - i);
-        remainder = (sum * 10) % 11;
-
-        if ((remainder === 10) || (remainder === 11)) remainder = 0;
-        if (remainder !== parseInt(strCPF.substring(10, 11))) return false;
-
-        return true;
-    };
-
     useEffect(() => {
         setIsValid(validateCPF(cpf));
         setError(null);
@@ -59,14 +27,18 @@ export const GoogleCpfScreen: React.FC<GoogleCpfScreenProps> = ({ onConfirm, onC
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!isValid) return;
+        if (!isValid) {
+            setError("CPF inválido.");
+            return;
+        }
         setIsSubmitting(true);
         setError(null);
 
         try {
-            // Check for duplicate CPF in Firestore
+            // Check for duplicate CPF in Firestore (Strict Clean Version)
+            const cpfClean = cleanCPF(cpf);
             const usersRef = collection(db, "users");
-            const q = query(usersRef, where("cpf", "==", cpf));
+            const q = query(usersRef, where("cpf", "==", cpfClean));
             const querySnapshot = await getDocs(q);
 
             if (!querySnapshot.empty) {
@@ -76,10 +48,15 @@ export const GoogleCpfScreen: React.FC<GoogleCpfScreenProps> = ({ onConfirm, onC
             }
 
             // Success
-            onConfirm(cpf);
-        } catch (err) {
+            onConfirm(cpfClean);
+        } catch (err: any) {
             console.error("Error checking CPF:", err);
-            setError("Erro ao validar CPF. Tente novamente.");
+            // Strict checking requires database access. If blocked, fail safely.
+            if (err.code === 'permission-denied') {
+                setError("Erro de conexão. Não foi possível validar o CPF.");
+            } else {
+                setError("Erro ao validar CPF. Tente novamente.");
+            }
             setIsSubmitting(false);
         }
     };

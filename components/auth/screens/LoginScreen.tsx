@@ -5,6 +5,7 @@ import { LoginFormData, SignupFormData } from '../../../types';
 import { usePageTracking } from '../../../hooks/usePageTracking';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebaseConfig';
+import { validateCPF, cleanCPF, formatCPF } from '../../../utils/validators';
 
 interface LoginScreenProps {
     onLogin: (data: LoginFormData) => void;
@@ -66,33 +67,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
         setIsCpfValid(isValid);
     }, [formData.cpf]);
 
-    const validateCPF = (cpf: string): boolean => {
-        const strCPF = cpf.replace(/[^\d]+/g, '');
-        
-        if (strCPF.length !== 11) return false;
-        
-        // Eliminate known invalid CPFs (111.111.111-11, etc.)
-        if (/^(\d)\1+$/.test(strCPF)) return false;
-
-        let sum = 0;
-        let remainder;
-
-        for (let i = 1; i <= 9; i++) sum = sum + parseInt(strCPF.substring(i - 1, i)) * (11 - i);
-        remainder = (sum * 10) % 11;
-
-        if ((remainder === 10) || (remainder === 11)) remainder = 0;
-        if (remainder !== parseInt(strCPF.substring(9, 10))) return false;
-
-        sum = 0;
-        for (let i = 1; i <= 10; i++) sum = sum + parseInt(strCPF.substring(i - 1, i)) * (12 - i);
-        remainder = (sum * 10) % 11;
-
-        if ((remainder === 10) || (remainder === 11)) remainder = 0;
-        if (remainder !== parseInt(strCPF.substring(10, 11))) return false;
-
-        return true;
-    };
-
     const formatPhone = (value: string) => {
         // Remove all non-digits
         const numbers = value.replace(/\D/g, '');
@@ -105,15 +79,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
             formatted += numbers[i];
         }
         return formatted.substring(0, 15);
-    };
-
-    const formatCPF = (value: string) => {
-        return value
-            .replace(/\D/g, '')
-            .replace(/(\d{3})(\d)/, '$1.$2')
-            .replace(/(\d{3})(\d)/, '$1.$2')
-            .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-            .replace(/(-\d{2})\d+?$/, '$1');
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,12 +108,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                 // Only allow signup if everything is valid
                 const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
                 
-                if (isPasswordValid && isCpfValid) {
+                if (!isCpfValid) {
+                    setErrorMessage("CPF inválido. Verifique os números.");
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                if (isPasswordValid) {
                     
-                    // --- CPF UNIQUENESS CHECK ---
+                    // --- CPF UNIQUENESS CHECK (RIGOROSO) ---
+                    const cpfClean = cleanCPF(formData.cpf);
                     try {
                         const usersRef = collection(db, "users");
-                        const q = query(usersRef, where("cpf", "==", formData.cpf));
+                        // Verifica se existe o CPF limpo (padrão)
+                        const q = query(usersRef, where("cpf", "==", cpfClean));
                         const querySnapshot = await getDocs(q);
 
                         if (!querySnapshot.empty) {
@@ -158,13 +131,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         }
                     } catch (firestoreError: any) {
                         console.error("Erro ao verificar CPF:", firestoreError);
-                        // Se for erro de permissão (comum antes de regras de admin), deixamos passar ou bloqueamos.
-                        // Para segurança, bloqueamos se não conseguimos validar, a menos que seja erro de rede.
+                        // Se der erro de permissão ou rede, bloqueamos por segurança, 
+                        // pois não conseguimos garantir a unicidade.
                         if (firestoreError.code === 'permission-denied') {
-                             // Em desenvolvimento/sem regras ajustadas, pode dar erro.
-                             // Idealmente, ajuste as regras do Firebase para permitir queries filtradas.
-                             console.warn("Permissão negada para verificar CPF. Prosseguindo (Cuidado).");
+                             setErrorMessage("Erro de conexão. Não foi possível verificar o cadastro.");
+                        } else {
+                             setErrorMessage("Erro ao validar dados. Tente novamente.");
                         }
+                        setIsSubmitting(false);
+                        return;
                     }
                     // -----------------------------
 
@@ -173,7 +148,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         email: formData.email,
                         password: formData.password,
                         phone: formData.phone,
-                        cpf: formData.cpf,
+                        cpf: cpfClean, // Salva apenas números
                         remember: rememberMe
                     });
                     setIsSuccess(true);
@@ -477,7 +452,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 
                                     <div className="pt-2">
                                         {errorMessage && (
-                                            <div className="flex items-center gap-2 text-red-400 text-sm mb-3 bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                                            <div className="flex items-center gap-2 text-red-400 text-sm mb-3 bg-red-500/10 p-3 rounded-lg border border-red-500/20 animate-pop">
                                                 <WarningIcon className="text-lg flex-shrink-0" />
                                                 <span>{errorMessage}</span>
                                             </div>
