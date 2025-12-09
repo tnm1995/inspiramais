@@ -69,10 +69,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, on
     const goToStep = (targetStep: OnboardingStep) => {
         setHistory(prev => [...prev, targetStep]);
     }
-
-    const handleQuickStart = () => {
-        goToStep(OnboardingStep.Topics);
-    };
     
     const finishOnboarding = () => {
         // Mark mood checkin as done for today so the main app doesn't ask immediately
@@ -96,7 +92,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, on
     const renderStep = () => {
         switch (step) {
             case OnboardingStep.Landing: return <LandingPage onGetStarted={next} onLoginClick={onLoginClick} onShowTerms={onShowTerms} onShowPrivacy={onShowPrivacy} />;
-            case OnboardingStep.Welcome: return <WelcomeScreen onNext={next} onQuickStart={handleQuickStart} progress={progress} />;
+            case OnboardingStep.Welcome: return <WelcomeScreen onNext={next} progress={progress} />;
             case OnboardingStep.Source: return <SourceScreen onNext={next} onBack={back} progress={progress} />;
             case OnboardingStep.Age: return <AgeScreen onNext={next} onBack={back} progress={progress} />;
             case OnboardingStep.Relationship: return <RelationshipScreen onNext={next} onBack={back} progress={progress} />;
