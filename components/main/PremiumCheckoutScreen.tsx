@@ -68,8 +68,11 @@ export const PremiumCheckoutScreen: React.FC<PremiumCheckoutScreenProps> = ({ on
                 if (docSnap.exists()) {
                     setConfig(docSnap.data() as AppConfig);
                 }
-            } catch (error) {
-                console.error("Error loading pricing config", error);
+            } catch (error: any) {
+                // Silently ignore permission errors so the checkout still works with defaults
+                if (error.code !== 'permission-denied') {
+                    console.error("Error loading pricing config", error);
+                }
             }
         };
         fetchConfig();

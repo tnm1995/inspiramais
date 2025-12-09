@@ -53,8 +53,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             if (docSnap.exists()) {
                 setAppConfig(docSnap.data() as AppConfig);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error loading config:", error);
+            // Admins should know if something is wrong
+            setToastMessage({ message: "Falha ao carregar configurações da loja. Verifique sua conexão.", type: 'error' });
         }
     };
 

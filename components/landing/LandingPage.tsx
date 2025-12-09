@@ -2,6 +2,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SparkleIcon, HeartIcon, CheckCircleIcon, CrownIcon, StarIcon, TrophyIcon, QuoteIcon, UserCircleIcon, FlameIcon, ArrowRightIcon, ChevronDownIcon } from '../Icons';
 import { usePageTracking } from '../../hooks/usePageTracking';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
+import { AppConfig } from '../../types';
 
 interface LandingPageProps {
     onGetStarted: () => void;
@@ -90,9 +93,44 @@ const TestimonialCard: React.FC<{ text: string; author: string; label: string }>
 export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginClick, onShowTerms, onShowPrivacy }) => {
     usePageTracking('/landingpage');
     const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+    const [config, setConfig] = useState<AppConfig>({
+        monthlyPrice: '14,90',
+        annualPrice: '9,90',
+        annualTotal: '118,80',
+        checkoutLinkMonthly: '',
+        checkoutLinkAnnual: ''
+    });
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const docRef = doc(db, "settings", "appConfig");
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    setConfig(docSnap.data() as AppConfig);
+                }
+            } catch (error: any) {
+                // Silently ignore permission errors to allow default values to show
+                if (error.code !== 'permission-denied') {
+                    console.error("Error loading pricing config", error);
+                }
+            }
+        };
+        fetchConfig();
+    }, []);
 
     const toggleFaq = (index: number) => {
         setOpenFaqIndex(openFaqIndex === index ? null : index);
+    };
+
+    const handlePlanClick = (type: 'monthly' | 'annual') => {
+        const link = type === 'monthly' ? config.checkoutLinkMonthly : config.checkoutLinkAnnual;
+        if (link && link.startsWith('http')) {
+            window.open(link, '_blank');
+        } else {
+            // Se não houver link, redireciona para login como fallback
+            if (onLoginClick) onLoginClick();
+        }
     };
     
     return (
@@ -150,16 +188,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                     <ScrollFade delay="300ms">
                         <div className="flex flex-col items-center pt-8">
                             <button 
-                                onClick={onGetStarted}
+                                onClick={onLoginClick}
                                 className="group relative w-full sm:w-auto px-8 md:px-12 py-4 md:py-5 bg-white text-black rounded-full font-bold font-sans text-lg shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.4)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 overflow-hidden"
                             >
                                 <span className="relative z-10">Começar sequência de 30 dias</span>
                                 <ArrowRightIcon className="relative z-10 text-xl group-hover:translate-x-1 transition-transform" />
                                 <div className="absolute inset-0 bg-gradient-to-r from-gray-100 to-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             </button>
-                            <p className="text-[10px] md:text-xs text-gray-500 mt-6 flex items-center gap-2 uppercase tracking-wider font-semibold font-sans">
-                                <CheckCircleIcon className="text-violet-500" /> Teste Gratuito Disponível
-                            </p>
                         </div>
                     </ScrollFade>
                 </div>
@@ -356,7 +391,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                                 <h3 className="text-xl font-bold text-gray-200 mb-2 font-serif">Plano Mensal</h3>
                                 <div className="flex items-baseline gap-1 leading-none text-white mb-6">
                                     <span className="text-sm text-gray-400 font-medium self-start mt-2">R$</span>
-                                    <span className="text-4xl font-bold font-sans">14,90</span>
+                                    <span className="text-4xl font-bold font-sans">{config.monthlyPrice}</span>
                                     <span className="text-sm text-gray-400 font-medium self-end mb-1">/mês</span>
                                 </div>
                                 <ul className="space-y-3 mb-8 text-gray-400 text-sm">
@@ -365,7 +400,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                                     <li className="flex gap-2"><CheckCircleIcon className="text-gray-500" /> Cancele quando quiser</li>
                                 </ul>
                                 <button 
-                                    onClick={onGetStarted}
+                                    onClick={() => handlePlanClick('monthly')}
                                     className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-4 rounded-xl transition-all"
                                 >
                                     Escolher Mensal
@@ -383,10 +418,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
 
                                 <div className="flex items-baseline gap-1 leading-none text-white mb-10">
                                     <span className="text-lg text-gray-400 font-medium self-start mt-2">R$</span>
-                                    <span className="text-6xl font-bold font-sans text-transparent bg-clip-text bg-gradient-to-b from-amber-200 to-amber-500">9,90</span>
+                                    <span className="text-6xl font-bold font-sans text-transparent bg-clip-text bg-gradient-to-b from-amber-200 to-amber-500">{config.annualPrice}</span>
                                     <span className="text-xl text-gray-400 font-medium self-end mb-2">/mês</span>
                                 </div>
-                                <p className="text-xs text-gray-500 -mt-8 mb-8">Cobrado anualmente (R$ 118,80)</p>
+                                <p className="text-xs text-gray-500 -mt-8 mb-8">Cobrado anualmente (R$ {config.annualTotal})</p>
 
                                 <ul className="space-y-4 mb-10 text-gray-300 text-sm md:text-base">
                                     <li className="flex gap-3"><CheckCircleIcon className="text-amber-500 text-xl" /> Sem Anúncios</li>
@@ -395,7 +430,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                                 </ul>
 
                                 <button 
-                                    onClick={onGetStarted}
+                                    onClick={() => handlePlanClick('annual')}
                                     className="w-full bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-bold py-5 rounded-full text-lg shadow-[0_0_40px_rgba(245,158,11,0.3)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
                                 >
                                    <CrownIcon className="text-xl" /> Começar Agora
