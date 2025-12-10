@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon } from '../Icons';
+import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon, PhoneIcon } from '../Icons';
 import { UserData, AppConfig } from '../../types';
 import { db, auth } from '../../firebaseConfig';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
@@ -29,7 +30,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         annualPrice: '9,90',
         annualTotal: '118,80',
         checkoutLinkMonthly: '',
-        checkoutLinkAnnual: ''
+        checkoutLinkAnnual: '',
+        whatsappLink: '',
+        supportLink: ''
     });
     const [isSavingConfig, setIsSavingConfig] = useState(false);
 
@@ -62,7 +65,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         setIsSavingConfig(true);
         try {
             await setDoc(doc(db, "settings", "appConfig"), appConfig);
-            setToastMessage({ message: "Configurações da loja salvas!", type: 'success' });
+            setToastMessage({ message: "Configurações salvas!", type: 'success' });
         } catch (error) {
             console.error("Error saving config:", error);
             setToastMessage({ message: "Erro ao salvar configurações.", type: 'error' });
@@ -313,14 +316,49 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                             </div>
                         </div>
                     </div>
+                </section>
+
+                {/* Support Settings Section */}
+                <section className="bg-[#111] border border-white/10 rounded-2xl p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <PhoneIcon className="text-green-500 text-xl" />
+                        <h2 className="text-lg font-bold">Canais de Suporte</h2>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs text-gray-400 mb-1">WhatsApp / Contato Direto</label>
+                                <input 
+                                    type="text" 
+                                    value={appConfig.whatsappLink || ''}
+                                    onChange={(e) => setAppConfig({...appConfig, whatsappLink: e.target.value})}
+                                    placeholder="Ex: https://wa.me/5511999999999"
+                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs text-gray-400 mb-1">Link Central de Ajuda</label>
+                                <input 
+                                    type="text" 
+                                    value={appConfig.supportLink || ''}
+                                    onChange={(e) => setAppConfig({...appConfig, supportLink: e.target.value})}
+                                    placeholder="Ex: https://ajuda.inspiramais.com"
+                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white"
+                                />
+                            </div>
+                        </div>
+                    </div>
                     
                     <div className="mt-6 text-right">
                         <button 
                             onClick={saveConfig}
                             disabled={isSavingConfig}
-                            className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-2 rounded-lg transition-colors"
+                            className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 rounded-lg transition-colors"
                         >
-                            {isSavingConfig ? "Salvando..." : "Salvar Configurações"}
+                            {isSavingConfig ? "Salvando..." : "Salvar Todas Configurações"}
                         </button>
                     </div>
                 </section>

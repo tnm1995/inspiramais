@@ -2,11 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { useUserData } from '../../context/UserDataContext';
 import { useAuth } from '../../context/AuthContext';
-import { ChevronLeftIcon, ChevronRightIcon, CrownIcon, HeartIcon, TrendingUpIcon, LightbulbIcon, EditIcon, CheckIcon, ClipboardIcon, LogoutIcon, LinkIcon, CogIcon } from '../Icons';
-import { Quote } from '../../types';
+import { ChevronLeftIcon, ChevronRightIcon, CrownIcon, HeartIcon, TrendingUpIcon, LightbulbIcon, EditIcon, CheckIcon, ClipboardIcon, LogoutIcon, LinkIcon, CogIcon, PhoneIcon } from '../Icons';
+import { Quote, AppConfig } from '../../types';
 import { generateDailyFocus } from '../../services/aiService';
 import { EditProfileScreen } from './EditProfileScreen';
 import { usePageTracking } from '../../hooks/usePageTracking';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 
 type ToastMessage = {
     message: string;
@@ -89,6 +91,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
     const favoriteQuotes = quotes.filter(q => q.liked);
     const [dailyFocus, setDailyFocus] = useState<DailyFocus | null>(null);
     const [isLoadingFocus, setIsLoadingFocus] = useState(false);
+    const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
 
     useEffect(() => {
         const fetchFocus = async () => {
@@ -116,6 +119,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
         fetchFocus();
     }, [userData]);
 
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const docRef = doc(db, "settings", "appConfig");
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    setAppConfig(docSnap.data() as AppConfig);
+                }
+            } catch (error: any) {
+                // Ignore permission errors
+                console.warn("Could not load support links:", error);
+            }
+        };
+        fetchConfig();
+    }, []);
+
 
     const handleCopy = (quote: Quote) => {
         const textToCopy = `"${quote.text}"${quote.author ? ` - ${quote.author}` : ''}`;
@@ -134,6 +153,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
     if (showEditProfile) {
         return <EditProfileScreen onBack={() => setShowEditProfile(false)} setToastMessage={setToastMessage} />;
     }
+
+    const openLink = (url?: string) => {
+        if (url && url.startsWith('http')) {
+            window.open(url, '_blank');
+        } else {
+            setToastMessage({ message: 'Link não configurado.', type: 'error' });
+        }
+    };
 
     return (
         <div role="dialog" aria-modal="true" aria-label="Tela de Perfil do Usuário" className={`fixed inset-0 z-40 bg-gray-50 text-gray-800 flex flex-col ${isClosing ? 'animate-slide-out-down' : 'animate-slide-in-up'}`}>
@@ -241,6 +268,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
                         <div className="flex items-center space-x-4">
                             <LogoutIcon className="text-2xl text-red-500" aria-hidden="true" />
                             <span className="text-gray-800 font-medium text-lg">Sair</span>
+                        </div>
+                    </button>
+                </section>
+
+                <section aria-labelledby="support-title" className="space-y-3">
+                     <h3 id="support-title" className="text-sm font-semibold text-gray-500 px-2 uppercase tracking-wider">Suporte</h3>
+                     <button onClick={() => openLink(appConfig?.whatsappLink)} className="flex items-center justify-between w-full p-4 bg-white rounded-lg hover:bg-gray-100 transition-colors text-left ring-1 ring-gray-200">
+                        <div className="flex items-center space-x-4">
+                            <PhoneIcon className="text-2xl text-green-500" aria-hidden="true" />
+                            <span className="text-gray-800 font-medium">Fale Conosco (WhatsApp)</span>
+                        </div>
+                    </button>
+                    <button onClick={() => openLink(appConfig?.supportLink)} className="flex items-center justify-between w-full p-4 bg-white rounded-lg hover:bg-gray-100 transition-colors text-left ring-1 ring-gray-200">
+                        <div className="flex items-center space-x-4">
+                            <LinkIcon className="text-2xl text-blue-500" aria-hidden="true" />
+                            <span className="text-gray-800 font-medium">Central de Ajuda</span>
                         </div>
                     </button>
                 </section>

@@ -98,7 +98,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
         annualPrice: '9,90',
         annualTotal: '118,80',
         checkoutLinkMonthly: '',
-        checkoutLinkAnnual: ''
+        checkoutLinkAnnual: '',
+        whatsappLink: '',
+        supportLink: ''
     });
 
     useEffect(() => {
@@ -502,8 +504,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                          <div className="flex flex-col gap-4">
                             <h4 className="font-bold text-gray-600 uppercase tracking-widest text-[10px]">Suporte</h4>
                             <div className="flex flex-col gap-2">
-                                <a href="#" className="text-sm text-gray-400 hover:text-violet-400 transition-colors">Central de Ajuda</a>
-                                <a href="#" className="text-sm text-gray-400 hover:text-violet-400 transition-colors">Fale Conosco</a>
+                                {config.supportLink && (
+                                    <a href={config.supportLink} target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-violet-400 transition-colors">Central de Ajuda</a>
+                                )}
+                                {config.whatsappLink && (
+                                    <a href={config.whatsappLink} target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-violet-400 transition-colors">Fale Conosco</a>
+                                )}
+                                {!config.supportLink && !config.whatsappLink && (
+                                    <span className="text-sm text-gray-600 cursor-not-allowed">Em breve</span>
+                                )}
                             </div>
                          </div>
                     </div>

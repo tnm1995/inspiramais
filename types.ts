@@ -84,4 +84,6 @@ export interface AppConfig {
     annualTotal: string; // Total annual price (e.g. "118,80")
     checkoutLinkMonthly: string;
     checkoutLinkAnnual: string;
+    whatsappLink?: string; // Link para WhatsApp de suporte
+    supportLink?: string; // Link para Central de Ajuda
 }
