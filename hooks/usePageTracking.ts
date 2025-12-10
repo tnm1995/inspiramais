@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { analytics } from '../firebaseConfig';
 import { logEvent, Analytics } from "firebase/analytics";
@@ -11,15 +10,16 @@ export const usePageTracking = (pageName: string) => {
     useEffect(() => {
         try {
             if (analytics) {
-                // Explicitly cast to Analytics to fix "Argument of type 'string' is not assignable to parameter of type 'never'" error
+                // Explicitly cast to Analytics to fix types
                 const analyticsInstance = analytics as Analytics;
 
-                logEvent(analyticsInstance, 'screen_view', {
+                // Cast event name to 'any' to bypass strict overload matching that causes 'never' type error
+                logEvent(analyticsInstance, 'screen_view' as any, {
                     firebase_screen_class: pageName,
                     firebase_screen_name: pageName
                 });
                 // Also log a custom event for easier filtering if needed
-                logEvent(analyticsInstance, 'page_view', {
+                logEvent(analyticsInstance, 'page_view' as any, {
                     page_title: pageName
                 });
             }

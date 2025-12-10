@@ -1,5 +1,5 @@
-
 import { initializeApp } from "firebase/app";
+import * as firebaseApp from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
@@ -15,7 +15,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase (Modular SDK)
-const app = initializeApp(firebaseConfig);
+// Using namespace import fallback or direct named import
+const app = firebaseApp.initializeApp ? firebaseApp.initializeApp(firebaseConfig) : initializeApp(firebaseConfig);
 
 // Initialize Services
 export const auth = getAuth(app);

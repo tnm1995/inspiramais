@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { EmailIcon, LockIcon, UserCircleIcon, PhoneIcon, SparkleIcon, ArrowRightIcon, ChevronLeftIcon, GoogleIcon, CreditCardIcon, CheckIcon, WarningIcon } from '../../Icons';
 import { LoginFormData, SignupFormData } from '../../../types';
@@ -228,7 +229,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                                     {currentTab === 'login' ? 'Entrando...' : 'Sucesso!'}
                                 </h2>
                                 <p className="text-gray-400 mb-8 font-sans leading-relaxed">
-                                    {currentTab === 'login' ? 'Preparando sua inspiração diária.' : 'Sua conta foi criada com sucesso.'}
+                                    {currentTab === 'login' ? 'Aguarde um momento...' : 'Sua conta foi criada com sucesso.'}
                                 </p>
                                 <div className="flex items-center gap-3 text-violet-400 text-sm font-bold animate-pulse bg-violet-500/10 px-4 py-2 rounded-full border border-violet-500/20">
                                     <SparkleIcon />

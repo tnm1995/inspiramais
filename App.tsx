@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { UserDataProvider, useUserData } from './context/UserDataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -155,7 +156,8 @@ const AppContent = () => {
                 // Router will handle redirection to onboarding flow because onboardingComplete is false
             });
 
-        } else if (authAction === 'login' && isAuthenticated && !isUserDataLoading && !pendingGoogleUser) {
+        } else if (authAction === 'login' && isAuthenticated && !pendingGoogleUser) {
+            // Removed !isUserDataLoading check here to prevent stuck on loading screen if user data takes time
             setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
             setAuthAction(null);
             replace('/home');
