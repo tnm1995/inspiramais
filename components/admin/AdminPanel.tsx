@@ -270,7 +270,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
 
             {/* Content */}
             <main className="flex-grow overflow-y-auto p-6 space-y-8">
-                
                 {/* SETTINGS TAB */}
                 {activeTab === 'settings' && (
                     <div className="space-y-6 max-w-4xl mx-auto animate-slide-in-up">

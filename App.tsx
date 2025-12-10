@@ -57,8 +57,10 @@ const ROUTES = {
     LANDING: '/ladingpage',
     LOGIN: '/login',
     SIGNUP: '/cadastro',
-    EXPLORE: '/explore', // Optional
-    SHARE: '/share'      // Optional
+    EXPLORE: '/explore',
+    SHARE: '/share',
+    ADMIN: '/admin',
+    MOOD_CHECKIN: '/mood-checkin'
 };
 
 const AppContent = () => {
@@ -166,6 +168,11 @@ const AppContent = () => {
         setShowPremiumCheckout(true);
     };
 
+    const handleOpenAdmin = () => {
+        safePushRoute(ROUTES.ADMIN);
+        setShowAdmin(true);
+    };
+
     // --- CLOSE HANDLERS (Triggered by UI Buttons) ---
     // Note: These mostly call safeGoBack(). The actual state change happens in the popstate listener
     // to ensure sync with browser back button. If safeGoBack returns false (preview mode), we close manually.
@@ -203,6 +210,12 @@ const AppContent = () => {
             setIsPremiumCheckoutClosing(true);
             setTimeout(() => { setShowPremiumCheckout(false); setIsPremiumCheckoutClosing(false); }, 500);
         }
+    }, [safeGoBack]);
+
+    const handleHideAdmin = useCallback(() => {
+         if (!safeGoBack()) {
+            setShowAdmin(false);
+         }
     }, [safeGoBack]);
 
     // Initial Route Handling and Popstate Listener
@@ -261,14 +274,23 @@ const AppContent = () => {
                 setIsPremiumCheckoutClosing(true);
                 setTimeout(() => { setShowPremiumCheckout(false); setIsPremiumCheckoutClosing(false); }, 500);
             }
+
+            // ADMIN
+            if (path === ROUTES.ADMIN) {
+                if (!showAdmin) setShowAdmin(true);
+            } else if (showAdmin) {
+                setShowAdmin(false);
+            }
+
+            // MOOD CHECKIN
+            if (path === ROUTES.MOOD_CHECKIN) {
+                if (!needsMoodCheckin) setNeedsMoodCheckin(true);
+            }
         };
 
         // Initial check
         // We only check modal routes if user is authenticated to avoid popping up stuff on landing
         if (isAuthenticated && userData) {
-             // If initial load is on a modal route, handleRoute will open it
-             // But we might need to verify if data is loaded. 
-             // The useEffect dependencies will trigger this again when data loads.
              handleRoute();
         } else if (!isAuthenticated) {
             // Handle Login/Signup/Landing routes
@@ -285,7 +307,9 @@ const AppContent = () => {
         showGamification, 
         showFilterModal, 
         showPremiumCheckout,
-        showLogin
+        showLogin,
+        showAdmin,
+        needsMoodCheckin
     ]);
 
     // Derived State
@@ -691,9 +715,12 @@ const AppContent = () => {
              const now = new Date().getTime();
              if (!lastCheckin || (now - parseInt(lastCheckin, 10)) > twentyFourHours) {
                  setNeedsMoodCheckin(true);
+                 if (window.location.pathname !== ROUTES.MOOD_CHECKIN) {
+                     safePushRoute(ROUTES.MOOD_CHECKIN);
+                 }
              }
         }
-    }, [isOnboarded]);
+    }, [isOnboarded, safePushRoute]);
     
     // Loading State
     if (isUserDataLoading || isAuthLoading) {
@@ -704,11 +731,16 @@ const AppContent = () => {
         updateUserData({ feeling });
         localStorage.setItem('inspiraMoodCheckin', new Date().getTime().toString());
         setNeedsMoodCheckin(false);
+        // Navigate back to home or previous state logic
+        if (!safeGoBack()) {
+             // Fallback if no history
+             window.history.pushState({}, '', ROUTES.HOME);
+        }
     };
 
     // Routing Logic
     if (showAdmin) {
-        return <AdminPanel onClose={() => setShowAdmin(false)} setToastMessage={setToastMessage} />;
+        return <AdminPanel onClose={handleHideAdmin} setToastMessage={setToastMessage} />;
     }
 
     if (pendingGoogleUser) {
@@ -885,12 +917,9 @@ const AppContent = () => {
                         isLoading={isDailyMotivationLoading}
                         onBack={handleHideDailyMotivation}
                         onNavigateToProfile={() => {
-                            // Specialized navigation
                             if (!safeGoBack()) {
                                 handleHideDailyMotivation();
                             }
-                            // Small delay to allow back transition to start/finish before pushing new state
-                            // But since we want to go straight to profile, replaceState might be better or pushState
                             setTimeout(() => handleOpenProfile(), 100);
                         }}
                         onLike={handleLikeDailyMotivation}
@@ -938,18 +967,6 @@ const AppContent = () => {
                         setToastMessage={setToastMessage} 
                         isClosing={isProfileClosing} 
                         onGoToPremium={() => { 
-                             // Navigate from Profile to Premium
-                             // We want back button on Premium to return to Profile, which returns to Home.
-                             // Profile is currently open (URL /profile). 
-                             // We don't close Profile technically, we just open Premium on top.
-                             // But our UI logic usually replaces the modal.
-                             
-                             // Strategy: Close profile (back to Home logic) then Open Premium? No, that flashes.
-                             // Strategy: Push Premium state on top.
-                             // Profile stays "mounted" but hidden? Or unmounted?
-                             
-                             // Current app logic conditionally renders only one big modal usually.
-                             // Let's close profile then open premium.
                              if (!safeGoBack()) {
                                  handleHideProfile();
                              }
@@ -959,7 +976,7 @@ const AppContent = () => {
                         onShowTerms={() => setShowTerms(true)}
                         onShowPrivacy={() => setShowPrivacy(true)}
                         isAdmin={isAdmin}
-                        onOpenAdmin={() => { handleHideProfile(); setShowAdmin(true); }}
+                        onOpenAdmin={handleOpenAdmin}
                     />
                 )}
 
