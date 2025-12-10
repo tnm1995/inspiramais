@@ -1,4 +1,4 @@
-import firebase from "firebase/compat/app";
+import * as firebaseApp from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
@@ -13,8 +13,8 @@ const firebaseConfig = {
   measurementId: "G-EBE8DRQ48E"
 };
 
-// Initialize Firebase (using compat app to ensure initializeApp is found during type resolution)
-const app = firebase.initializeApp(firebaseConfig);
+// Initialize Firebase using the Modular SDK pattern
+const app = firebaseApp.initializeApp(firebaseConfig);
 
 // Initialize Services
 export const auth = getAuth(app);
