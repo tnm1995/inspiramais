@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { analytics } from '../firebaseConfig';
-import { logEvent } from 'firebase/analytics';
+import { logEvent, Analytics } from "firebase/analytics";
 
 /**
  * Hook to track screen/page views in Firebase Analytics.
@@ -9,16 +9,19 @@ import { logEvent } from 'firebase/analytics';
 export const usePageTracking = (pageName: string) => {
     useEffect(() => {
         try {
-            logEvent(analytics, 'screen_view', {
-                firebase_screen: pageName,
-                screen_name: pageName
-            } as any);
+            if (analytics) {
+                // Explicitly cast to Analytics to fix "Argument of type 'string' is not assignable to parameter of type 'never'" error
+                const analyticsInstance = analytics as Analytics;
 
-            // Also log a custom event for easier filtering if needed
-            logEvent(analytics, 'page_view', {
-                page_title: pageName
-            } as any);
-
+                logEvent(analyticsInstance, 'screen_view', {
+                    firebase_screen: pageName,
+                    screen_name: pageName
+                });
+                // Also log a custom event for easier filtering if needed
+                logEvent(analyticsInstance, 'page_view', {
+                    page_title: pageName
+                });
+            }
         } catch (error) {
             console.warn("Analytics Error:", error);
         }

@@ -1,7 +1,8 @@
-import firebase from "firebase/compat/app";
-import "firebase/compat/auth";
-import "firebase/compat/firestore";
-import "firebase/compat/analytics";
+
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getAnalytics } from "firebase/analytics";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDmqsdfWwUVK5koxlOnW_-k_TsMLGVCQ7o",
@@ -13,9 +14,10 @@ const firebaseConfig = {
   measurementId: "G-EBE8DRQ48E"
 };
 
-// Initialize Firebase using compat (v8-style) which is safer when named exports fail
-const app = firebase.initializeApp(firebaseConfig);
+// Initialize Firebase (Modular SDK)
+const app = initializeApp(firebaseConfig);
 
-export const auth = app.auth();
-export const db = app.firestore();
-export const analytics = app.analytics();
+// Initialize Services
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
