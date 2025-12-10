@@ -264,13 +264,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
                             <ChevronRightIcon className="text-xl text-indigo-400" aria-hidden="true" />
                         </button>
                     )}
-
-                    <button onClick={onLogout} className="flex items-center w-full p-4 bg-white rounded-lg hover:bg-gray-100 transition-colors text-left ring-1 ring-gray-200" aria-label="Sair da conta">
-                        <div className="flex items-center space-x-4">
-                            <LogoutIcon className="text-2xl text-red-500" aria-hidden="true" />
-                            <span className="text-gray-800 font-medium text-lg">Sair</span>
-                        </div>
-                    </button>
                 </section>
 
                 <section aria-labelledby="support-title" className="space-y-3">
@@ -283,7 +276,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
                     </button>
                 </section>
 
-                <section aria-labelledby="about-title" className="space-y-3 pb-8">
+                <section aria-labelledby="about-title" className="space-y-3">
                      <h3 id="about-title" className="text-sm font-semibold text-gray-500 px-2 uppercase tracking-wider">Sobre o App</h3>
                      <button onClick={onShowTerms} className="flex items-center justify-between w-full p-4 bg-white rounded-lg hover:bg-gray-100 transition-colors text-left ring-1 ring-gray-200">
                         <div className="flex items-center space-x-4">
@@ -298,6 +291,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
                         </div>
                     </button>
                 </section>
+
+                <div className="pt-6 pb-8">
+                    <button onClick={onLogout} className="flex items-center w-full p-4 bg-white rounded-lg hover:bg-red-50 border border-red-100 transition-colors text-left shadow-sm" aria-label="Sair da conta">
+                        <div className="flex items-center space-x-4">
+                            <LogoutIcon className="text-2xl text-red-500" aria-hidden="true" />
+                            <span className="text-red-600 font-medium text-lg">Sair</span>
+                        </div>
+                    </button>
+                </div>
 
             </div>
 
