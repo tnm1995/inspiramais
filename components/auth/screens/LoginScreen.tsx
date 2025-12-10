@@ -176,7 +176,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
     };
 
     return (
-         <div className="min-h-screen w-full bg-[#020204] text-white flex flex-col items-center justify-center py-12 px-6 font-sans overflow-y-auto">
+         <div className="h-screen w-full bg-[#020204] text-white flex flex-col items-center justify-start md:justify-center py-12 px-6 font-sans overflow-y-auto scrollbar-hide">
             
             {/* Ambient Background */}
             <div className="fixed top-[-20%] left-[-10%] w-[80%] h-[60%] bg-violet-900/20 rounded-full blur-[120px] pointer-events-none animate-pulse-slow"></div>
@@ -193,7 +193,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                 </button>
             )}
 
-            <div className="relative z-10 w-full max-w-md flex flex-col items-center">
+            <div className="relative z-10 w-full max-w-md flex flex-col items-center my-auto">
                 
                 {/* Logo & Branding - Added distinct bottom margin */}
                 <div className={`flex flex-col items-center mb-8 flex-shrink-0 transition-all duration-700 ease-out ${isSuccess ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}>
