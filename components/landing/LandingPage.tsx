@@ -481,28 +481,35 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                 </div>
             </section>
 
-            <footer className="py-12 text-center text-gray-600 text-xs border-t border-white/5 bg-[#050505] font-sans">
-                <div className="flex items-center justify-center gap-2 mb-4 opacity-50 hover:opacity-100 transition-opacity">
-                    <SparkleIcon className="text-violet-500" />
-                    <span className="font-bold text-gray-400">Inspira+</span>
+            <footer className="py-12 border-t border-white/5 bg-[#050505] font-sans">
+                <div className="max-w-4xl mx-auto px-6 flex flex-col items-center text-center">
+                    
+                    {/* Brand */}
+                    <div className="flex items-center gap-2 mb-8 opacity-50 hover:opacity-100 transition-opacity cursor-default">
+                        <SparkleIcon className="text-violet-500" />
+                        <span className="font-bold text-gray-400">Inspira+</span>
+                    </div>
+
+                    {/* Links Grid - Centered */}
+                    <div className="flex flex-wrap justify-center gap-12 md:gap-24 mb-10 w-full">
+                         <div className="flex flex-col gap-4">
+                            <h4 className="font-bold text-gray-600 uppercase tracking-widest text-[10px]">Legal</h4>
+                            <div className="flex flex-col gap-2">
+                                <button onClick={onShowTerms} className="text-sm text-gray-400 hover:text-violet-400 transition-colors">Termos de Uso</button>
+                                <button onClick={onShowPrivacy} className="text-sm text-gray-400 hover:text-violet-400 transition-colors">Privacidade</button>
+                            </div>
+                         </div>
+                         <div className="flex flex-col gap-4">
+                            <h4 className="font-bold text-gray-600 uppercase tracking-widest text-[10px]">Suporte</h4>
+                            <div className="flex flex-col gap-2">
+                                <a href="#" className="text-sm text-gray-400 hover:text-violet-400 transition-colors">Central de Ajuda</a>
+                                <a href="#" className="text-sm text-gray-400 hover:text-violet-400 transition-colors">Fale Conosco</a>
+                            </div>
+                         </div>
+                    </div>
+
+                    <p className="text-xs text-gray-700">&copy; {new Date().getFullYear()} Inspira+. Feito com carinho no Brasil.</p>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto mb-8 text-left px-8">
-                     <div>
-                        <h4 className="font-bold text-gray-500 mb-4 uppercase tracking-wider">Legal</h4>
-                        <ul className="space-y-2">
-                            <li><button onClick={onShowTerms} className="hover:text-violet-400 transition-colors">Termos de Uso</button></li>
-                            <li><button onClick={onShowPrivacy} className="hover:text-violet-400 transition-colors">Privacidade</button></li>
-                        </ul>
-                     </div>
-                     <div>
-                        <h4 className="font-bold text-gray-500 mb-4 uppercase tracking-wider">Suporte</h4>
-                        <ul className="space-y-2">
-                            <li><a href="#" className="hover:text-violet-400 transition-colors">Central de Ajuda</a></li>
-                            <li><a href="#" className="hover:text-violet-400 transition-colors">Fale Conosco</a></li>
-                        </ul>
-                     </div>
-                </div>
-                <p>&copy; {new Date().getFullYear()} Inspira+. Feito com carinho no Brasil.</p>
             </footer>
         </div>
     );
