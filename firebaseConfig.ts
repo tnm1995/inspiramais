@@ -1,4 +1,3 @@
-import { initializeApp } from "firebase/app";
 import * as firebaseApp from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
@@ -15,8 +14,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase (Modular SDK)
-// Using namespace import fallback or direct named import
-const app = firebaseApp.initializeApp ? firebaseApp.initializeApp(firebaseConfig) : initializeApp(firebaseConfig);
+// Using namespace import to handle potential resolution issues with named exports in some environments
+const app = firebaseApp.initializeApp(firebaseConfig);
 
 // Initialize Services
 export const auth = getAuth(app);
