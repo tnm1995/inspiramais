@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { EmailIcon, LockIcon, UserCircleIcon, PhoneIcon, SparkleIcon, ArrowRightIcon, ChevronLeftIcon, GoogleIcon, CreditCardIcon, CheckIcon, CloseIcon, WarningIcon, CogIcon } from '../../Icons';
+import { EmailIcon, LockIcon, UserCircleIcon, PhoneIcon, SparkleIcon, ArrowRightIcon, ChevronLeftIcon, GoogleIcon, CreditCardIcon, CheckIcon, WarningIcon } from '../../Icons';
 import { LoginFormData, SignupFormData } from '../../../types';
 import { usePageTracking } from '../../../hooks/usePageTracking';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebaseConfig';
 import { validateCPF, cleanCPF, formatCPF } from '../../../utils/validators';
+import { useRouter } from '../../../hooks/useRouter';
 
 interface LoginScreenProps {
     onLogin: (data: LoginFormData) => void;
@@ -13,14 +14,38 @@ interface LoginScreenProps {
     onGoogleLogin?: () => void;
     onBack?: () => void;
     onResetPassword?: (email: string) => void;
+    activeTab?: 'login' | 'signup';
+    showForgotPassword?: boolean;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onGoogleLogin, onBack, onResetPassword }) => {
-    const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
-    const [showForgotPassword, setShowForgotPassword] = useState(false);
+export const LoginScreen: React.FC<LoginScreenProps> = ({ 
+    onLogin, 
+    onSignup, 
+    onGoogleLogin, 
+    onBack, 
+    onResetPassword, 
+    activeTab: initialTab = 'login',
+    showForgotPassword = false
+}) => {
+    const { replace, back } = useRouter();
+    const [currentTab, setCurrentTab] = useState<'login' | 'signup'>(initialTab);
     
-    // Tracking active tab as a separate "page"
-    usePageTracking(showForgotPassword ? '/forgot-password' : (activeTab === 'login' ? '/login' : '/signup'));
+    // Sync internal tab state with props if they change (from URL)
+    useEffect(() => {
+        setCurrentTab(initialTab);
+    }, [initialTab]);
+
+    const handleTabChange = (tab: 'login' | 'signup') => {
+        setCurrentTab(tab);
+        // Update URL hash to reflect tab change without reloading
+        replace(`/${tab}`);
+    };
+
+    const handleForgotPasswordOpen = () => {
+        replace('/forgot-password');
+    };
+
+    usePageTracking(showForgotPassword ? '/forgot-password' : (currentTab === 'login' ? '/login' : '/signup'));
 
     const [formData, setFormData] = useState({
         name: '',
@@ -38,10 +63,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // Success Animation State
     const [isSuccess, setIsSuccess] = useState(false);
 
-    // Password Validation State
     const [passwordCriteria, setPasswordCriteria] = useState({
         hasUpper: false,
         hasLower: false,
@@ -61,7 +84,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
         });
     }, [formData.password]);
 
-    // CPF Validation Algorithm
     useEffect(() => {
         const isValid = validateCPF(formData.cpf);
         setIsCpfValid(isValid);
@@ -81,13 +103,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let { name, value } = e.target;
-        
-        if (name === 'phone') {
-            value = formatPhone(value);
-        } else if (name === 'cpf') {
-            value = formatCPF(value);
-        }
-
+        if (name === 'phone') value = formatPhone(value);
+        else if (name === 'cpf') value = formatCPF(value);
         setFormData({ ...formData, [name]: value });
         if (errorMessage) setErrorMessage(null);
     };
@@ -98,33 +115,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
         setIsSubmitting(true);
 
         try {
-            if (activeTab === 'login') {
+            if (currentTab === 'login') {
                 await onLogin({ email: formData.email, password: formData.password, remember: rememberMe });
                 setIsSuccess(true);
             } else {
                 const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
-                
                 if (!isCpfValid) {
                     setErrorMessage("CPF inválido. Verifique os números.");
                     setIsSubmitting(false);
                     return;
                 }
-
                 if (isPasswordValid) {
-                    // CPF Check
                     const cpfClean = cleanCPF(formData.cpf);
                     try {
                         const usersRef = collection(db, "users");
                         const q = query(usersRef, where("cpf", "==", cpfClean));
                         const querySnapshot = await getDocs(q);
-
                         if (!querySnapshot.empty) {
                             setErrorMessage("Este CPF já possui um cadastro.");
                             setIsSubmitting(false);
                             return;
                         }
                     } catch (firestoreError: any) {
-                        console.error("Erro ao verificar CPF:", firestoreError);
                         if (firestoreError.code === 'permission-denied') {
                              setErrorMessage("Erro de conexão. Não foi possível verificar o cadastro.");
                         } else {
@@ -133,7 +145,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         setIsSubmitting(false);
                         return;
                     }
-
                     await onSignup({
                         name: formData.name,
                         email: formData.email,
@@ -151,9 +162,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
     };
     
     const handleGoogleLogin = () => {
-       if (onGoogleLogin) {
-           onGoogleLogin();
-       }
+       if (onGoogleLogin) onGoogleLogin();
     };
 
     const handleResetSubmit = (e: React.FormEvent) => {
@@ -167,7 +176,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
     const isLoginButtonDisabled = !formData.email || !formData.password || isSubmitting;
     const isSignupButtonDisabled = !formData.name || !formData.email || !formData.password || !isCpfValid || !formData.phone || !Object.values(passwordCriteria).every(Boolean) || isSubmitting;
 
-    // Helper for input borders
     const getInputClass = (hasError: boolean = false, isValid: boolean = false) => {
         const base = "w-full py-4 pl-12 pr-4 bg-[#1a1a1a] border rounded-2xl text-white placeholder-gray-500 focus:outline-none transition-all duration-300";
         if (hasError) return `${base} border-red-500/50 focus:border-red-500`;
@@ -177,16 +185,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 
     return (
          <div className="fixed inset-0 z-50 w-full h-full bg-[#020204] text-white overflow-y-auto scrollbar-hide font-sans">
-            
-            {/* Ambient Background - Fixed so they don't scroll */}
+            {/* Ambient Background */}
             <div className="fixed top-[-20%] left-[-10%] w-[80%] h-[60%] bg-violet-900/20 rounded-full blur-[120px] pointer-events-none animate-pulse-slow"></div>
             <div className="fixed bottom-[-10%] right-[-10%] w-[80%] h-[60%] bg-indigo-900/10 rounded-full blur-[120px] pointer-events-none"></div>
             <div className="fixed inset-0 bg-noise opacity-[0.03] pointer-events-none mix-blend-overlay"></div>
             
-            {/* Back Button - Fixed position to stay visible during scroll */}
+            {/* Back Button */}
             {(onBack && !isSuccess) && (
                 <button 
-                    onClick={() => showForgotPassword ? setShowForgotPassword(false) : onBack()}
+                    onClick={onBack}
                     className="fixed top-6 left-6 z-[60] w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 flex items-center justify-center transition-colors backdrop-blur-md"
                 >
                     <ChevronLeftIcon className="text-xl text-gray-300" />
@@ -195,8 +202,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 
             {/* Main Scrollable Content Wrapper */}
             <div className="min-h-full w-full flex flex-col items-center py-12 px-6 relative z-10">
-                
-                {/* Center Content Group with Auto Margins for safe centering */}
                 <div className="w-full max-w-md flex flex-col items-center my-auto">
                     
                     {/* Logo & Branding */}
@@ -210,7 +215,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         <p className="text-gray-500 text-sm mt-2 font-medium tracking-wide">Sua jornada diária começa aqui.</p>
                     </div>
 
-                    {/* Main Card - Solid Background for better contrast */}
+                    {/* Main Card */}
                     <div className="w-full bg-[#111] border border-white/10 p-6 md:p-8 rounded-[2rem] shadow-2xl relative transition-all duration-500 flex flex-col">
                         
                         {/* Success Overlay */}
@@ -220,10 +225,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                     <CheckIcon className="text-5xl text-green-500" />
                                 </div>
                                 <h2 className="text-3xl font-bold text-white mb-3 font-sora">
-                                    {activeTab === 'login' ? 'Entrando...' : 'Sucesso!'}
+                                    {currentTab === 'login' ? 'Entrando...' : 'Sucesso!'}
                                 </h2>
                                 <p className="text-gray-400 mb-8 font-sans leading-relaxed">
-                                    {activeTab === 'login' ? 'Preparando sua inspiração diária.' : 'Sua conta foi criada com sucesso.'}
+                                    {currentTab === 'login' ? 'Preparando sua inspiração diária.' : 'Sua conta foi criada com sucesso.'}
                                 </p>
                                 <div className="flex items-center gap-3 text-violet-400 text-sm font-bold animate-pulse bg-violet-500/10 px-4 py-2 rounded-full border border-violet-500/20">
                                     <SparkleIcon />
@@ -254,7 +259,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                                 <span className="text-sm font-bold">E-mail enviado!</span>
                                             </div>
                                             <button 
-                                                onClick={() => setShowForgotPassword(false)}
+                                                onClick={() => replace('/login')}
                                                 className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-4 rounded-2xl transition-all"
                                             >
                                                 Voltar para o Login
@@ -284,7 +289,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                             </button>
                                             <button 
                                                 type="button"
-                                                onClick={() => setShowForgotPassword(false)}
+                                                onClick={() => back()}
                                                 className="w-full py-3 text-sm text-gray-400 hover:text-white transition-colors"
                                             >
                                                 Cancelar
@@ -298,18 +303,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                     {/* Custom Toggle Switch */}
                                     <div className="p-1.5 bg-black/40 rounded-full mb-8 border border-white/5 relative">
                                         <div 
-                                            className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white/10 border border-white/10 rounded-full transition-all duration-300 ease-out shadow-sm ${activeTab === 'login' ? 'left-1.5' : 'left-[calc(50%+4.5px)]'}`}
+                                            className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white/10 border border-white/10 rounded-full transition-all duration-300 ease-out shadow-sm ${currentTab === 'login' ? 'left-1.5' : 'left-[calc(50%+4.5px)]'}`}
                                         ></div>
                                         <div className="flex relative z-10">
                                             <button 
-                                                onClick={() => setActiveTab('login')} 
-                                                className={`flex-1 py-3 text-sm font-bold rounded-full transition-colors duration-300 ${activeTab === 'login' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                                                onClick={() => handleTabChange('login')} 
+                                                className={`flex-1 py-3 text-sm font-bold rounded-full transition-colors duration-300 ${currentTab === 'login' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
                                             >
                                                 Entrar
                                             </button>
                                             <button 
-                                                onClick={() => setActiveTab('signup')} 
-                                                className={`flex-1 py-3 text-sm font-bold rounded-full transition-colors duration-300 ${activeTab === 'signup' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                                                onClick={() => handleTabChange('signup')} 
+                                                className={`flex-1 py-3 text-sm font-bold rounded-full transition-colors duration-300 ${currentTab === 'signup' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
                                             >
                                                 Criar Conta
                                             </button>
@@ -318,8 +323,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 
                                     <form onSubmit={handleSubmit} className="space-y-4">
                                         
-                                        {/* Signup Fields Accordion - Uses auto height */}
-                                        <div className={`space-y-4 overflow-hidden transition-all duration-500 ease-in-out ${activeTab === 'signup' ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                        {/* Signup Fields Accordion */}
+                                        <div className={`space-y-4 overflow-hidden transition-all duration-500 ease-in-out ${currentTab === 'signup' ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                             <div className="relative group">
                                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                                     <UserCircleIcon className="text-gray-500 group-focus-within:text-violet-400 transition-colors" />
@@ -330,8 +335,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                                     value={formData.name} 
                                                     onChange={handleChange} 
                                                     placeholder="Nome completo" 
-                                                    required={activeTab === 'signup'}
-                                                    tabIndex={activeTab === 'signup' ? 0 : -1}
+                                                    required={currentTab === 'signup'}
+                                                    tabIndex={currentTab === 'signup' ? 0 : -1}
                                                     className={getInputClass()} 
                                                 />
                                             </div>
@@ -346,8 +351,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                                     value={formData.cpf} 
                                                     onChange={handleChange} 
                                                     placeholder="CPF" 
-                                                    required={activeTab === 'signup'}
-                                                    tabIndex={activeTab === 'signup' ? 0 : -1}
+                                                    required={currentTab === 'signup'}
+                                                    tabIndex={currentTab === 'signup' ? 0 : -1}
                                                     maxLength={14}
                                                     className={getInputClass(false, isCpfValid && formData.cpf.length === 14)} 
                                                 />
@@ -363,8 +368,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                                     value={formData.phone} 
                                                     onChange={handleChange} 
                                                     placeholder="Telefone" 
-                                                    required={activeTab === 'signup'}
-                                                    tabIndex={activeTab === 'signup' ? 0 : -1}
+                                                    required={currentTab === 'signup'}
+                                                    tabIndex={currentTab === 'signup' ? 0 : -1}
                                                     className={getInputClass()} 
                                                 />
                                             </div>
@@ -402,7 +407,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                         </div>
 
                                         {/* Password Criteria (Signup Only) */}
-                                        <div className={`overflow-hidden transition-all duration-500 ease-in-out ${activeTab === 'signup' ? 'max-h-[150px] opacity-100 pt-2' : 'max-h-0 opacity-0'}`}>
+                                        <div className={`overflow-hidden transition-all duration-500 ease-in-out ${currentTab === 'signup' ? 'max-h-[150px] opacity-100 pt-2' : 'max-h-0 opacity-0'}`}>
                                             <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
                                                 <p className="text-[10px] uppercase text-gray-500 font-bold tracking-wider mb-3">Requisitos da senha</p>
                                                 <div className="grid grid-cols-2 gap-2">
@@ -416,7 +421,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                         </div>
 
                                         {/* Login Helpers */}
-                                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${activeTab === 'login' ? 'max-h-[40px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${currentTab === 'login' ? 'max-h-[40px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                             <div className="flex justify-between items-center px-1">
                                                 <label className="flex items-center cursor-pointer group select-none">
                                                     <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${rememberMe ? 'bg-violet-600 border-violet-600' : 'bg-transparent border-gray-600 group-hover:border-gray-400'}`}>
@@ -433,11 +438,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 
                                                 <button 
                                                     type="button" 
-                                                    onClick={() => {
-                                                        setShowForgotPassword(true);
-                                                        setResetEmail(formData.email || '');
-                                                        setIsResetSent(false);
-                                                    }}
+                                                    onClick={handleForgotPasswordOpen}
                                                     className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors"
                                                 >
                                                     Esqueceu a senha?
@@ -456,14 +457,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 
                                             <button
                                                 type="submit"
-                                                disabled={activeTab === 'login' ? isLoginButtonDisabled : isSignupButtonDisabled}
+                                                disabled={currentTab === 'login' ? isLoginButtonDisabled : isSignupButtonDisabled}
                                                 className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-4 rounded-2xl shadow-[0_0_25px_rgba(124,58,237,0.4)] hover:shadow-[0_0_35px_rgba(124,58,237,0.5)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 group"
                                             >
                                                 {isSubmitting ? (
                                                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                                                 ) : (
                                                     <>
-                                                        <span className="text-base tracking-wide">{activeTab === 'login' ? "Entrar" : "Cadastrar"}</span>
+                                                        <span className="text-base tracking-wide">{currentTab === 'login' ? "Entrar" : "Cadastrar"}</span>
                                                         <ArrowRightIcon className="group-hover:translate-x-1 transition-transform" />
                                                     </>
                                                 )}

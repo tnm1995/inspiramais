@@ -5,6 +5,7 @@ import { usePageTracking } from '../../hooks/usePageTracking';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { AppConfig } from '../../types';
+import { useRouter } from '../../hooks/useRouter';
 
 interface LandingPageProps {
     onGetStarted: () => void;
@@ -92,6 +93,7 @@ const TestimonialCard: React.FC<{ text: string; author: string; label: string }>
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginClick, onShowTerms, onShowPrivacy }) => {
     usePageTracking('/landingpage');
+    const { push } = useRouter();
     const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
     const [config, setConfig] = useState<AppConfig>({
         monthlyPrice: '14,90',
@@ -130,7 +132,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
             window.open(link, '_blank');
         } else {
             // Se não houver link, redireciona para login como fallback
-            if (onLoginClick) onLoginClick();
+            push('/login');
         }
     };
     
@@ -149,7 +151,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                     <span className="text-xl font-bold font-sans tracking-tight text-white">Inspira<span className="text-violet-500">+</span></span>
                 </div>
                 <button 
-                    onClick={onLoginClick}
+                    onClick={() => push('/login')}
                     className="px-5 py-2 rounded-full bg-white text-black text-sm font-bold font-sans hover:bg-gray-200 hover:scale-105 active:scale-95 transition-all shadow-lg"
                 >
                     Entrar
@@ -189,7 +191,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                     <ScrollFade delay="300ms">
                         <div className="flex flex-col items-center pt-8">
                             <button 
-                                onClick={onLoginClick}
+                                onClick={() => push('/signup')}
                                 className="group relative w-auto px-8 md:px-10 py-3 md:py-4 bg-white text-black rounded-full font-bold font-sans text-base md:text-lg shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.4)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 overflow-hidden"
                             >
                                 <span className="relative z-10">Começar Agora</span>

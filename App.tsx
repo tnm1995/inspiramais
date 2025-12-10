@@ -19,6 +19,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import firebase from 'firebase/compat/app';
 import { GoogleCpfScreen } from './components/auth/screens/GoogleCpfScreen';
+import { useRouter } from './hooks/useRouter';
 
 
 // Lazy load components
@@ -47,32 +48,26 @@ const triggerHapticFeedback = (pattern: number | number[] = 30) => {
 };
 
 const AppContent = () => {
+    const { route, push, replace, back } = useRouter();
     const { userData, updateUserData, loading: isUserDataLoading, completeQuest, initializeUser } = useUserData();
     const { login, signup, loginWithGoogle, resetPassword, logout, isAuthenticated, isLoading: isAuthLoading, authError } = useAuth();
     const [needsMoodCheckin, setNeedsMoodCheckin] = useState(false);
     
-    // Login Flow State
-    const [showLogin, setShowLogin] = useState(false);
+    // Auth Flow State
     const [authAction, setAuthAction] = useState<'login' | 'signup' | null>(null);
     const [tempSignupData, setTempSignupData] = useState<SignupFormData | null>(null);
     
     // Google Auth Pending State (waiting for CPF)
     const [pendingGoogleUser, setPendingGoogleUser] = useState<firebase.User | null>(null);
     
-    // Legal Screens State
+    // Legal Screens State (Global overlays)
     const [showTerms, setShowTerms] = useState(false);
     const [showPrivacy, setShowPrivacy] = useState(false);
     
-    // Admin State
-    const [showAdmin, setShowAdmin] = useState(false);
-
+    // Main App Data
     const [quotes, setQuotes] = useState<Quote[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [showProfile, setShowProfile] = useState(false);
-    const [isProfileClosing, setIsProfileClosing] = useState(false);
     const [toastMessage, setToastMessage] = useState<ToastMessage | null>(null);
-    const [showFilterModal, setShowFilterModal] = useState(false);
-    const [isFilterClosing, setIsFilterClosing] = useState(false);
     const [activeFilter, setActiveFilter] = useState<string | null>(null);
     const [likedQuoteId, setLikedQuoteId] = useState<string | null>(null);
     const [exploringQuote, setExploringQuote] = useState<Quote | null>(null);
@@ -82,47 +77,62 @@ const AppContent = () => {
     // Daily Motivation States
     const [dailyMotivation, setDailyMotivation] = useState<DailyMotivation | null>(null);
     const [isDailyMotivationLoading, setIsDailyMotivationLoading] = useState(true);
-    const [showDailyMotivation, setShowDailyMotivation] = useState(false);
     const [isDailyMotivationClosing, setIsDailyMotivationClosing] = useState(false);
     
-    const [showPremiumCheckout, setShowPremiumCheckout] = useState(false);
+    // Modal Closing States (for animations)
+    const [isProfileClosing, setIsProfileClosing] = useState(false);
+    const [isFilterClosing, setIsFilterClosing] = useState(false);
     const [isPremiumCheckoutClosing, setIsPremiumCheckoutClosing] = useState(false);
-
+    const [isGamificationClosing, setIsGamificationClosing] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [isShareModalClosing, setIsShareModalClosing] = useState(false);
     const [quoteForShareModal, setQuoteForShareModal] = useState<Quote | null>(null);
     
     // Gamification States
-    const [showGamification, setShowGamification] = useState(false);
-    const [isGamificationClosing, setIsGamificationClosing] = useState(false);
     const [levelUpData, setLevelUpData] = useState<number | null>(null);
     const [isLevelUpClosing, setIsLevelUpClosing] = useState(false);
 
-    // Derived State
+    // --- Route Derived States ---
+    const showLogin = route === '/login' || route === '/signup' || route === '/forgot-password';
+    const showProfile = route === '/profile';
+    const showAdmin = route === '/admin';
+    const showDailyMotivation = route === '/daily-motivation';
+    const showPremiumCheckout = route === '/premium';
+    const showFilterModal = route === '/filter';
+    const showGamification = route === '/journey';
+
+    // Derived User State
     const isOnboarded = !!userData?.onboardingComplete;
     const isAdmin = !!userData?.isAdmin;
     
     // Strict Access Control Check
     const hasActiveAccess = useMemo(() => {
-        // Admins always have access
         if (isAdmin) return true;
-        
         if (!userData) return false;
-        
-        // 1. Must be marked as Premium
         if (!userData.isPremium) return false;
-
-        // 2. If there is an expiry date, it must be in the future
         if (userData.subscriptionExpiry) {
             const expiryDate = new Date(userData.subscriptionExpiry);
             const now = new Date();
             if (now > expiryDate) return false;
         }
-
         return true;
     }, [userData, isAdmin]);
 
     const isSharePage = useMemo(() => new URLSearchParams(window.location.search).get('share') === 'true', []);
+
+    // --- Auth & Routing Effects ---
+
+    // Redirect authenticated users from landing/login to home
+    useEffect(() => {
+        if (!isAuthLoading && !isUserDataLoading) {
+            if (isAuthenticated && userData) {
+                // If on auth pages, go to home
+                if (route === '/landing' || route === '/login' || route === '/signup' || route === '/forgot-password') {
+                    replace('/home');
+                }
+            }
+        }
+    }, [isAuthenticated, isAuthLoading, isUserDataLoading, userData, route, replace]);
 
     // Handle Authentication Errors and Feedback
     useEffect(() => {
@@ -133,41 +143,27 @@ const AppContent = () => {
 
     // Handle Post-Auth Data Initialization
     useEffect(() => {
-        // If we just signed up and are authenticated, we need to initialize user data in Firestore
-        // Note: This logic is for email/password signup. Google logic is handled separately below.
         if (authAction === 'signup' && isAuthenticated && tempSignupData && !isUserDataLoading) {
-            
-            // Initialize Firestore Document
             initializeUser({
                 name: tempSignupData.name,
-                onboardingComplete: false, // Start false so we see the OnboardingFlow questions
-                cpf: tempSignupData.cpf, // Save CPF
-                // In real app, store phone/CPF secure hash or in a separate secure collection if needed
-                // For this demo we just initialize the basic profile
+                onboardingComplete: false,
+                cpf: tempSignupData.cpf,
             }).then(() => {
                 setToastMessage({ message: `Conta criada!`, type: 'success' });
                 setAuthAction(null);
                 setTempSignupData(null);
-                setShowLogin(false);
+                // Router will handle redirection to onboarding flow because onboardingComplete is false
             });
 
         } else if (authAction === 'login' && isAuthenticated && !isUserDataLoading && !pendingGoogleUser) {
-            // Login successful
-            // Ensure onboarding is marked if it was missing (migration)
-            /* COMMENTED OUT: Do NOT force complete onboarding on migration anymore, let them answer questions if missing
-            if (userData && !userData.onboardingComplete) {
-                updateUserData({ onboardingComplete: true });
-            }
-            */
-            
             setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
             setAuthAction(null);
-            setShowLogin(false);
+            replace('/home');
         }
-    }, [authAction, isAuthenticated, isUserDataLoading, tempSignupData, initializeUser, userData, updateUserData, pendingGoogleUser]);
+    }, [authAction, isAuthenticated, isUserDataLoading, tempSignupData, initializeUser, pendingGoogleUser, replace]);
 
 
-    // Fetch Daily Motivation (Restored)
+    // Fetch Daily Motivation
     useEffect(() => {
         const fetchMotivation = async () => {
             const todayStr = new Date().toISOString().split('T')[0];
@@ -196,11 +192,8 @@ const AppContent = () => {
                     category: "Persistência",
                     imageUrl: ""
                 };
-
                 if (error instanceof QuotaExceededError) {
                     setToastMessage({ message: 'Cota de geração diária excedida.', type: 'error' });
-                } else {
-                    setToastMessage({ message: 'Falha ao carregar motivação diária. Exibindo uma alternativa.', type: 'error' });
                 }
                 setDailyMotivation(fallbackMotivation);
             } finally {
@@ -243,19 +236,14 @@ const AppContent = () => {
             }
 
         } catch (error) {
-            console.error("Error generating quotes:", error);
             if (error instanceof QuotaExceededError) {
                 setIsApiRateLimited(true);
                 setToastMessage({ message: 'Limite de uso diário da IA atingido. Tente novamente amanhã.', type: 'error' });
-                if (isInitial) {
-                    setQuotes(fallbackQuotes);
-                }
+                if (isInitial) setQuotes(fallbackQuotes);
                 setTimeout(() => setIsApiRateLimited(false), 60000);
             } else {
-                setToastMessage({ message: 'Falha ao buscar citações. Tente novamente.', type: 'error' });
-                 if (isInitial) {
-                    setQuotes(fallbackQuotes);
-                }
+                setToastMessage({ message: 'Falha ao buscar citações.', type: 'error' });
+                 if (isInitial) setQuotes(fallbackQuotes);
             }
         } finally {
             setIsLoading(false);
@@ -270,14 +258,13 @@ const AppContent = () => {
             setQuotes(newQuotes);
             setToastMessage({ message: 'Citações atualizadas!', type: 'success' });
         } catch (error) {
-            console.error("Error refreshing quotes:", error);
             if (error instanceof QuotaExceededError) {
                 setIsApiRateLimited(true);
-                setToastMessage({ message: 'Limite de uso diário da IA atingido. Tente novamente amanhã.', type: 'error' });
+                setToastMessage({ message: 'Limite de uso diário da IA atingido.', type: 'error' });
                 setQuotes(fallbackQuotes);
                 setTimeout(() => setIsApiRateLimited(false), 60000);
             } else {
-                setToastMessage({ message: 'Falha ao atualizar. Tente novamente.', type: 'error' });
+                setToastMessage({ message: 'Falha ao atualizar.', type: 'error' });
             }
         } finally {
             setIsLoading(false);
@@ -303,7 +290,6 @@ const AppContent = () => {
              setToastMessage({ message: 'Adicionada aos favoritos!', type: 'success' });
              setLikedQuoteId(id);
              setTimeout(() => setLikedQuoteId(null), 1000);
-             // Gamification Trigger
              const result = completeQuest('like_quote');
              checkLevelUp(result);
         }
@@ -314,31 +300,29 @@ const AppContent = () => {
         setQuoteForShareModal(quote);
         setShowShareModal(true);
         triggerHapticFeedback();
-        
-        // Gamification Trigger (Award when modal opens as intent to share)
         const result = completeQuest('share_quote');
         checkLevelUp(result);
     }, [completeQuest]);
     
-    // Gamification: Track reads on scroll (Called from QuoteFeed)
     const handleQuoteRead = useCallback(() => {
         const result = completeQuest('read_quotes');
         checkLevelUp(result);
     }, [completeQuest]);
 
+    // Navigation / Closing Handlers with Animations
     const handleHideProfile = () => {
         setIsProfileClosing(true);
         setTimeout(() => {
-            setShowProfile(false);
             setIsProfileClosing(false);
+            back();
         }, 500);
     };
 
     const handleHideGamification = () => {
         setIsGamificationClosing(true);
         setTimeout(() => {
-            setShowGamification(false);
             setIsGamificationClosing(false);
+            back();
         }, 500);
     };
 
@@ -353,29 +337,28 @@ const AppContent = () => {
     const handleHideFilter = () => {
         setIsFilterClosing(true);
         setTimeout(() => {
-            setShowFilterModal(false);
             setIsFilterClosing(false);
+            back();
         }, 500);
     };
     
     const handleHideDailyMotivation = () => {
         setIsDailyMotivationClosing(true);
         setTimeout(() => {
-            setShowDailyMotivation(false);
             setIsDailyMotivationClosing(false);
+            back();
         }, 500);
     };
 
     const handleHidePremiumCheckout = () => {
         setIsPremiumCheckoutClosing(true);
         setTimeout(() => {
-            setShowPremiumCheckout(false);
             setIsPremiumCheckoutClosing(false);
+            back();
         }, 500);
     };
 
     const handlePurchaseComplete = () => {
-        // Calculate 1 month expiry from now
         const now = new Date();
         now.setMonth(now.getMonth() + 1);
         
@@ -385,9 +368,8 @@ const AppContent = () => {
         });
         
         handleHidePremiumCheckout();
-        setToastMessage({ message: 'Bem-vindo(a) ao Premium! Obrigado pelo seu apoio.', type: 'success' });
+        setToastMessage({ message: 'Bem-vindo(a) ao Premium!', type: 'success' });
     };
-
 
     const handleSelectFilter = (topic: string | null) => {
         if (activeFilter !== topic) {
@@ -409,9 +391,8 @@ const AppContent = () => {
         }, 500);
     };
     
-    // Daily Motivation Logic (Restored)
+    // Daily Quote Logic
     const dailyQuoteId = useMemo(() => `daily-${new Date().toISOString().split('T')[0]}`, []);
-
     const dailyQuote = useMemo((): Quote | null => {
         if (!dailyMotivation) return null;
         const existing = quotes.find(q => q.id === dailyQuoteId);
@@ -428,7 +409,6 @@ const AppContent = () => {
 
     const handleLikeDailyMotivation = useCallback(() => {
         if (!dailyQuote) return;
-        
         triggerHapticFeedback();
         
         const isCurrentlyLiked = dailyQuote.liked;
@@ -438,8 +418,6 @@ const AppContent = () => {
             setToastMessage({ message: 'Adicionada aos favoritos!', type: 'success' });
             setLikedQuoteId(dailyQuote.id);
             setTimeout(() => setLikedQuoteId(null), 1000);
-            
-             // Gamification Trigger
              const result = completeQuest('like_quote');
              checkLevelUp(result);
         }
@@ -460,11 +438,7 @@ const AppContent = () => {
         }, 500);
     };
     
-    const handleTriggerPremium = () => {
-        setShowPremiumCheckout(true);
-    };
-
-    // Login Handling - Connecting to Auth Context
+    // Login Handling
     const handleLoginSubmit = async (data: LoginFormData) => {
         setAuthAction('login');
         try {
@@ -475,7 +449,7 @@ const AppContent = () => {
     };
 
     const handleSignupSubmit = async (data: SignupFormData) => {
-        setTempSignupData(data); // Store data to apply after context switch
+        setTempSignupData(data);
         setAuthAction('signup');
         try {
             await signup(data);
@@ -488,18 +462,14 @@ const AppContent = () => {
         try {
             const result = await loginWithGoogle();
             const user = result.user;
-            
-            // Check if user doc exists in Firestore
             const userDocRef = doc(db, "users", user.uid);
             const docSnap = await getDoc(userDocRef);
 
             if (!docSnap.exists()) {
-                // New user via Google - INTERCEPT HERE
-                // Set pending state to show CPF screen
                 setPendingGoogleUser(user);
             } else {
                  setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
-                 setShowLogin(false);
+                 replace('/home');
             }
         } catch (error) {
             console.error("Google Login Handled Error:", error);
@@ -508,22 +478,20 @@ const AppContent = () => {
 
     const handleFinalizeGoogleSignup = async (cpf: string) => {
         if (!pendingGoogleUser) return;
-
         await initializeUser({
             name: pendingGoogleUser.displayName || 'Usuária',
             email: pendingGoogleUser.email || undefined,
-            onboardingComplete: false, // Start false to force questionnaire
+            onboardingComplete: false,
             cpf: cpf
         }, pendingGoogleUser.uid);
-
         setToastMessage({ message: `Conta criada com sucesso!`, type: 'success' });
         setPendingGoogleUser(null);
-        setShowLogin(false);
+        // Router handles redirection based on onboardingComplete: false
     };
 
     const handleCancelGoogleSignup = () => {
         setPendingGoogleUser(null);
-        logout(); // Force logout as they are authenticated in firebase but not in our app logic
+        logout();
         setToastMessage({ message: `Cadastro cancelado.`, type: 'error' });
     };
 
@@ -532,19 +500,16 @@ const AppContent = () => {
             await resetPassword(email);
             setToastMessage({ message: `E-mail de recuperação enviado para ${email}`, type: 'success' });
         } catch (error) {
-            // Error handling done in context, toast message updated via useEffect on authError
+            // Error handled in context
         }
     };
 
     const handleLogout = useCallback(() => {
-        // Immediate redirection order to prevent onboarding flash
-        setShowLogin(true);
-        setShowProfile(false);
+        replace('/login');
         setIsProfileClosing(false);
-        setShowAdmin(false);
         setPendingGoogleUser(null);
         logout();
-    }, [logout]);
+    }, [logout, replace]);
 
 
     if (isSharePage) return <SharePage />;
@@ -572,38 +537,35 @@ const AppContent = () => {
         setNeedsMoodCheckin(false);
     };
 
-    // Routing Logic
+    // --- VIEW RENDERING ---
+
     if (showAdmin) {
-        return <AdminPanel onClose={() => setShowAdmin(false)} setToastMessage={setToastMessage} />;
+        return <AdminPanel onClose={() => back()} setToastMessage={setToastMessage} />;
     }
 
-    // Intercept with Google CPF Screen
     if (pendingGoogleUser) {
-        return (
-            <GoogleCpfScreen 
-                onConfirm={handleFinalizeGoogleSignup}
-                onCancel={handleCancelGoogleSignup}
-            />
-        );
+        return <GoogleCpfScreen onConfirm={handleFinalizeGoogleSignup} onCancel={handleCancelGoogleSignup} />;
     }
 
     if (showLogin) {
         return (
             <LoginScreen 
+                activeTab={route === '/signup' ? 'signup' : 'login'}
+                showForgotPassword={route === '/forgot-password'}
                 onLogin={handleLoginSubmit} 
                 onSignup={handleSignupSubmit}
                 onGoogleLogin={handleGoogleLogin}
                 onResetPassword={handleResetPassword}
-                onBack={() => setShowLogin(false)}
+                onBack={() => route === '/forgot-password' ? back() : replace('/landing')}
             />
         );
     }
 
-    // If not authenticated, start onboarding (Landing Page)
+    // Unauthenticated -> Landing / Onboarding
     if (!isAuthenticated) return (
         <>
             <OnboardingFlow 
-                onLoginClick={() => setShowLogin(true)} 
+                onLoginClick={() => push('/login')} 
                 onShowTerms={() => setShowTerms(true)}
                 onShowPrivacy={() => setShowPrivacy(true)}
             />
@@ -612,49 +574,38 @@ const AppContent = () => {
         </>
     );
     
-    // Fallback: Authenticated but no user data? (Race condition or failed creation)
+    // Fallback: Authenticated but no user data?
     if (!userData) {
         return (
             <div className="h-full w-full bg-black flex flex-col items-center justify-center text-white p-6 text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-500 mb-6"></div>
                 <h2 className="text-xl font-bold mb-2">Preparando seu perfil...</h2>
                 <p className="text-gray-400 mb-8">Isso pode levar alguns segundos na primeira vez.</p>
-                
-                <button 
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-sm font-bold"
-                >
-                    <LogoutIcon className="text-red-400" />
-                    Tentar Novamente (Sair)
+                <button onClick={handleLogout} className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors text-sm font-bold">
+                    <LogoutIcon className="text-red-400" /> Tentar Novamente (Sair)
                 </button>
             </div>
         );
     }
 
-    // AUTHENTICATED BUT NOT ONBOARDED: Force Onboarding Flow starting from Welcome
+    // Force Onboarding if incomplete
     if (userData && !userData.onboardingComplete) {
         return (
             <OnboardingFlow 
                 initialStep={OnboardingStep.Welcome}
-                onLoginClick={() => {}} // Should not happen since logged in
+                onLoginClick={() => {}} 
                 onShowTerms={() => setShowTerms(true)}
                 onShowPrivacy={() => setShowPrivacy(true)}
             />
         );
     }
 
-
-    // 1. BLOCKING EXPIRED SCREEN - The Gatekeeper
+    // EXPIRED / LOCKED SCREEN
     if (!hasActiveAccess && !showPremiumCheckout) {
-        return (
-            <SubscriptionExpiredScreen 
-                onRenew={() => setShowPremiumCheckout(true)} 
-                onLogout={handleLogout} 
-            />
-        );
+        return <SubscriptionExpiredScreen onRenew={() => push('/premium')} onLogout={handleLogout} />;
     }
 
-    // 2. CHECKOUT SCREEN
+    // PREMIUM CHECKOUT
     if (showPremiumCheckout) {
         return (
             <Suspense fallback={<div className="fixed inset-0 bg-black z-50"></div>}>
@@ -667,13 +618,12 @@ const AppContent = () => {
         );
     }
 
-    // 3. Mood Checkin
+    // MOOD CHECKIN
     if (needsMoodCheckin) {
-        return (
-            <MoodCheckinScreen onComplete={handleMoodCheckinComplete} />
-        );
+        return <MoodCheckinScreen onComplete={handleMoodCheckinComplete} />;
     }
 
+    // --- MAIN APP ---
     return (
         <main className="relative h-full w-full bg-black text-gray-50 font-sans overflow-hidden" role="main">
              <div className={`w-full h-full transition-all duration-500 ease-in-out ${showProfile || showFilterModal || exploringQuote || showDailyMotivation || showShareModal || showGamification ? 'scale-95 brightness-75' : 'scale-100 brightness-100'}`}>
@@ -695,16 +645,16 @@ const AppContent = () => {
                             <div className="h-10 w-10 bg-white/50 rounded-full animate-pulse shadow-md" aria-hidden="true"></div>
                         ) : (
                             <button 
-                                onClick={() => setShowDailyMotivation(true)}
+                                onClick={() => push('/daily-motivation')}
                                 className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center transform active:scale-95"
                                 aria-label="Ver Motivação do Dia"
                             >
                                 <SunnyIcon className="text-amber-500 text-[24px]" />
                             </button>
                         )}
-                         {/* Gamification Entry Point */}
+                         {/* Gamification Entry */}
                          <button 
-                             onClick={() => setShowGamification(true)}
+                             onClick={() => push('/journey')}
                              className="h-10 px-4 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center gap-3 transform active:scale-95"
                              aria-label="Ver Jornada"
                          >
@@ -722,10 +672,10 @@ const AppContent = () => {
                     </div>
                     
                     <div role="navigation" aria-label="Navegação Principal" className="pointer-events-auto flex items-center space-x-2">
-                        <button aria-label="Filtrar tópicos" onClick={() => setShowFilterModal(true)} className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center transform active:scale-95">
+                        <button aria-label="Filtrar tópicos" onClick={() => push('/filter')} className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center transform active:scale-95">
                             <FilterIcon className="text-white text-[24px]"/>
                         </button>
-                        <button aria-label="Ver perfil" onClick={() => setShowProfile(true)} className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center transform active:scale-95">
+                        <button aria-label="Ver perfil" onClick={() => push('/profile')} className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center transform active:scale-95">
                             <UserCircleIcon className="text-white text-[24px]"/>
                         </button>
                     </div>
@@ -741,7 +691,7 @@ const AppContent = () => {
                         onBack={handleHideDailyMotivation}
                         onNavigateToProfile={() => {
                             handleHideDailyMotivation();
-                            setTimeout(() => setShowProfile(true), 500);
+                            setTimeout(() => push('/profile'), 500);
                         }}
                         onLike={handleLikeDailyMotivation}
                         onShare={handleShare}
@@ -775,8 +725,8 @@ const AppContent = () => {
                         onSelectFilter={handleSelectFilter} 
                         onClose={handleHideFilter} 
                         isClosing={isFilterClosing} 
-                        isPremium={true} // Always allow filtering inside the app
-                        onTriggerPremium={handleTriggerPremium}
+                        isPremium={true} 
+                        onTriggerPremium={() => push('/premium')}
                     />
                 )}
 
@@ -787,12 +737,12 @@ const AppContent = () => {
                         onLike={handleLike} 
                         setToastMessage={setToastMessage} 
                         isClosing={isProfileClosing} 
-                        onGoToPremium={() => { handleHideProfile(); setTimeout(() => setShowPremiumCheckout(true), 100); }} 
+                        onGoToPremium={() => { handleHideProfile(); setTimeout(() => push('/premium'), 100); }} 
                         onLogout={handleLogout}
                         onShowTerms={() => setShowTerms(true)}
                         onShowPrivacy={() => setShowPrivacy(true)}
                         isAdmin={isAdmin}
-                        onOpenAdmin={() => { handleHideProfile(); setShowAdmin(true); }}
+                        onOpenAdmin={() => { handleHideProfile(); push('/admin'); }}
                     />
                 )}
 
@@ -809,7 +759,7 @@ const AppContent = () => {
             {showTerms && <TermsScreen onClose={() => setShowTerms(false)} />}
             {showPrivacy && <PrivacyScreen onClose={() => setShowPrivacy(false)} />}
 
-            {/* Modern Glass Toast Notification - Fixed Centering Container - Positioned higher */}
+            {/* Toast Notification */}
             {toastMessage && (
                 <div className="fixed bottom-36 left-0 w-full z-[100] flex justify-center pointer-events-none">
                     <div 

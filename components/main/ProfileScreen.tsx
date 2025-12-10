@@ -9,6 +9,7 @@ import { EditProfileScreen } from './EditProfileScreen';
 import { usePageTracking } from '../../hooks/usePageTracking';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+import { useRouter } from '../../hooks/useRouter';
 
 type ToastMessage = {
     message: string;
@@ -84,6 +85,7 @@ const StatCard: React.FC<{ icon: React.ReactNode, value: number, label: string }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, onLike, setToastMessage, isClosing, onGoToPremium, onLogout, onShowTerms, onShowPrivacy, isAdmin, onOpenAdmin }) => {
     usePageTracking('/profile');
+    const { back } = useRouter();
     const { userData } = useUserData();
     const { userEmail } = useAuth();
     const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -128,7 +130,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
                     setAppConfig(docSnap.data() as AppConfig);
                 }
             } catch (error: any) {
-                // Ignore permission errors
                 console.warn("Could not load support links:", error);
             }
         };
