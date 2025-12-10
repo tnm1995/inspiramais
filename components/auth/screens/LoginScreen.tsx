@@ -508,7 +508,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                             className="w-full bg-[#1a1a1a] hover:bg-[#252525] border border-white/10 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-3 group active:scale-[0.98]"
                                         >
                                             <GoogleIcon className="w-5 h-5 grayscale group-hover:grayscale-0 transition-all opacity-80 group-hover:opacity-100" />
-                                            <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">Google</span>
+                                            <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">Entrar com o Google</span>
                                         </button>
                                     </div>
                                 </>
