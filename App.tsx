@@ -53,6 +53,7 @@ const AppContent = () => {
     
     // Login Flow State
     const [showLogin, setShowLogin] = useState(false);
+    const [loginInitialTab, setLoginInitialTab] = useState<'login' | 'signup'>('login');
     const [authAction, setAuthAction] = useState<'login' | 'signup' | null>(null);
     const [tempSignupData, setTempSignupData] = useState<SignupFormData | null>(null);
     
@@ -97,6 +98,53 @@ const AppContent = () => {
     const [isGamificationClosing, setIsGamificationClosing] = useState(false);
     const [levelUpData, setLevelUpData] = useState<number | null>(null);
     const [isLevelUpClosing, setIsLevelUpClosing] = useState(false);
+
+    // Initial Route Handling and History Management
+    useEffect(() => {
+        const handleRoute = () => {
+            const path = window.location.pathname;
+            if (path === '/login') {
+                setLoginInitialTab('login');
+                setShowLogin(true);
+            } else if (path === '/cadastro') {
+                setLoginInitialTab('signup');
+                setShowLogin(true);
+            } else if (path === '/ladingpage') {
+                setShowLogin(false);
+            } else if (path === '/home') {
+                setShowLogin(false);
+            }
+        };
+
+        handleRoute();
+        window.addEventListener('popstate', handleRoute);
+        return () => window.removeEventListener('popstate', handleRoute);
+    }, []);
+
+    // Sync URL for Home/Landing based on auth status
+    useEffect(() => {
+        // Prevent SecurityError in sandboxed environments (blob URLs)
+        if (window.location.href.includes('blob:')) return;
+
+        if (isAuthenticated && !showLogin && userData?.onboardingComplete) {
+            if (window.location.pathname !== '/home') {
+                try {
+                    window.history.replaceState({}, '', '/home');
+                } catch (e) {
+                    // Silently ignore navigation errors
+                }
+            }
+        } else if (!isAuthenticated && !showLogin) {
+            // Default to /ladingpage if not deep linking to login/signup
+             if (window.location.pathname === '/' || window.location.pathname === '') {
+                 try {
+                     window.history.replaceState({}, '', '/ladingpage');
+                 } catch (e) {
+                     // Silently ignore navigation errors
+                 }
+             }
+        }
+    }, [isAuthenticated, showLogin, userData?.onboardingComplete]);
 
     // Derived State
     const isOnboarded = !!userData?.onboardingComplete;
@@ -153,13 +201,6 @@ const AppContent = () => {
 
         } else if (authAction === 'login' && isAuthenticated && !isUserDataLoading && !pendingGoogleUser) {
             // Login successful
-            // Ensure onboarding is marked if it was missing (migration)
-            /* COMMENTED OUT: Do NOT force complete onboarding on migration anymore, let them answer questions if missing
-            if (userData && !userData.onboardingComplete) {
-                updateUserData({ onboardingComplete: true });
-            }
-            */
-            
             setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
             setAuthAction(null);
             setShowLogin(false);
@@ -543,6 +584,16 @@ const AppContent = () => {
         setIsProfileClosing(false);
         setShowAdmin(false);
         setPendingGoogleUser(null);
+        
+        // Prevent SecurityError in sandboxed environments (blob URLs)
+        if (!window.location.href.includes('blob:')) {
+            try {
+                window.history.pushState({}, '', '/ladingpage');
+            } catch (e) {
+                // Silently ignore navigation errors
+            }
+        }
+        
         logout();
     }, [logout]);
 
@@ -590,11 +641,24 @@ const AppContent = () => {
     if (showLogin) {
         return (
             <LoginScreen 
+                initialTab={loginInitialTab}
                 onLogin={handleLoginSubmit} 
                 onSignup={handleSignupSubmit}
                 onGoogleLogin={handleGoogleLogin}
                 onResetPassword={handleResetPassword}
-                onBack={() => setShowLogin(false)}
+                onBack={() => {
+                    setShowLogin(false);
+                    
+                    // Prevent SecurityError in sandboxed environments (blob URLs)
+                    if (!window.location.href.includes('blob:') && !isAuthenticated) {
+                        // Push state to go back to landing page history
+                         try {
+                            window.history.pushState({}, '', '/ladingpage');
+                        } catch (e) {
+                            // Silently ignore navigation errors
+                        }
+                    }
+                }}
             />
         );
     }
@@ -603,7 +667,19 @@ const AppContent = () => {
     if (!isAuthenticated) return (
         <>
             <OnboardingFlow 
-                onLoginClick={() => setShowLogin(true)} 
+                onLoginClick={() => {
+                    setLoginInitialTab('login');
+                    setShowLogin(true);
+                    
+                    // Prevent SecurityError in sandboxed environments (blob URLs)
+                    if (!window.location.href.includes('blob:')) {
+                        try {
+                            window.history.pushState({}, '', '/login');
+                        } catch (e) {
+                            // Silently ignore navigation errors
+                        }
+                    }
+                }} 
                 onShowTerms={() => setShowTerms(true)}
                 onShowPrivacy={() => setShowPrivacy(true)}
             />

@@ -13,11 +13,34 @@ interface LoginScreenProps {
     onGoogleLogin?: () => void;
     onBack?: () => void;
     onResetPassword?: (email: string) => void;
+    initialTab?: 'login' | 'signup';
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onGoogleLogin, onBack, onResetPassword }) => {
-    const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onGoogleLogin, onBack, onResetPassword, initialTab }) => {
+    const [activeTab, setActiveTab] = useState<'login' | 'signup'>(initialTab || 'login');
     const [showForgotPassword, setShowForgotPassword] = useState(false);
+    
+    // Update URL when activeTab changes, synchronized with back navigation
+    useEffect(() => {
+        // Prevent SecurityError in sandboxed environments (blob URLs)
+        if (window.location.href.includes('blob:')) return;
+
+        const path = activeTab === 'login' ? '/login' : '/cadastro';
+        if (window.location.pathname !== path) {
+            try {
+                window.history.pushState({}, '', path);
+            } catch (e) {
+                // Silently ignore navigation errors in restricted environments
+            }
+        }
+    }, [activeTab]);
+
+    // Update activeTab if prop changes (e.g. parent handling deep links or back navigation)
+    useEffect(() => {
+        if (initialTab) {
+            setActiveTab(initialTab);
+        }
+    }, [initialTab]);
     
     // Tracking active tab as a separate "page"
     usePageTracking(showForgotPassword ? '/forgot-password' : (activeTab === 'login' ? '/login' : '/signup'));

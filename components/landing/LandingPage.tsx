@@ -103,6 +103,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
     });
 
     useEffect(() => {
+        // Prevent SecurityError in sandboxed environments (blob URLs)
+        if (window.location.href.includes('blob:')) return;
+
+        // Ensure the URL is correct for the landing page
+        if (window.location.pathname !== '/ladingpage') {
+            try {
+                window.history.replaceState({}, '', '/ladingpage');
+            } catch (e) {
+                // Silently ignore navigation errors in restricted environments
+            }
+        }
+    }, []);
+
+    useEffect(() => {
         const fetchConfig = async () => {
             try {
                 const docRef = doc(db, "settings", "appConfig");
@@ -111,7 +125,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                     setConfig(docSnap.data() as AppConfig);
                 }
             } catch (error: any) {
-                // Silently ignore permission errors to allow default values to show
                 if (error.code !== 'permission-denied') {
                     console.error("Error loading pricing config", error);
                 }
@@ -129,7 +142,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
         if (link && link.startsWith('http')) {
             window.open(link, '_blank');
         } else {
-            // Se não houver link, redireciona para login como fallback
             if (onLoginClick) onLoginClick();
         }
     };
@@ -170,7 +182,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                     </ScrollFade>
 
                     <ScrollFade delay="100ms">
-                        {/* Hero Headline: Sans-serif Extrabold for Maximum Readability */}
                         <h1 className="text-4xl md:text-6xl lg:text-7xl font-sans font-extrabold text-white leading-[1.1] tracking-tight drop-shadow-2xl">
                             Acorda com peso no peito pensando: <br/>
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-300 to-white pr-2">
@@ -189,7 +200,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                     <ScrollFade delay="300ms">
                         <div className="flex flex-col items-center pt-8">
                             <button 
-                                onClick={onLoginClick}
+                                onClick={onGetStarted}
                                 className="group relative w-auto px-8 md:px-10 py-3 md:py-4 bg-white text-black rounded-full font-bold font-sans text-base md:text-lg shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.4)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 overflow-hidden"
                             >
                                 <span className="relative z-10">Começar Agora</span>
@@ -200,7 +211,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                     </ScrollFade>
                 </div>
                 
-                {/* Scroll Indicator - Adjusted to bottom-2 for more spacing */}
+                {/* Scroll Indicator */}
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 animate-bounce opacity-30">
                     <div className="w-5 h-8 border-2 border-white rounded-full flex justify-center pt-2">
                         <div className="w-1 h-2 bg-white rounded-full"></div>
@@ -213,7 +224,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                 <div className="max-w-6xl mx-auto">
                     <ScrollFade>
                         <div className="text-center mb-16 md:mb-20">
-                            {/* Section Title: Sora Font */}
                             <h2 className="text-3xl md:text-4xl font-serif font-bold text-white mb-4">Parece familiar?</h2>
                             <p className="text-gray-500 text-lg font-sans">Você não é a única que se sente assim.</p>
                         </div>
@@ -242,7 +252,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                                 <div className="absolute inset-0 bg-violet-600/20 blur-[60px] rounded-full pointer-events-none"></div>
                                 <div className="relative bg-[#111]/80 backdrop-blur-xl p-8 md:p-10 rounded-[2.5rem] border border-white/10 shadow-2xl">
                                     <QuoteIcon className="text-violet-500 text-5xl mb-6 opacity-50" />
-                                    {/* Quote: Sora Font (non-italic for modern look) */}
                                     <h3 className="text-xl md:text-2xl text-white font-serif leading-relaxed mb-8">
                                         “Eu não consigo ser consistente. Todo mundo consegue, menos eu. Já tentei de tudo e sempre desisto.”
                                     </h3>
@@ -268,7 +277,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
 
             {/* --- MECANISMO & PROMESSA --- */}
             <section className="py-24 md:py-32 px-6 relative overflow-hidden">
-                {/* Background Details */}
                 <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent"></div>
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03]"></div>
                 
@@ -278,7 +286,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                             <div className="w-16 h-16 md:w-20 md:h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-amber-500/20 shadow-[0_0_30px_rgba(245,158,11,0.2)]">
                                 <CrownIcon className="text-3xl md:text-4xl text-amber-500" />
                             </div>
-                            {/* Promise: Sora Font - Font size reduced slightly */}
                             <h2 className="text-2xl md:text-4xl lg:text-5xl font-serif text-white mb-8 leading-tight">
                                 Em <span className="text-amber-400">30–60 dias</span> você vai olhar pra trás e se orgulhar da mulher que está voltando a ser.
                             </h2>
@@ -337,7 +344,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                                     +38k
                                 </div>
                             </div>
-                            {/* Social Proof Title: Sora Font */}
                             <h2 className="text-3xl md:text-5xl font-serif text-white mb-4">
                                 Mais de 38 mil mulheres
                             </h2>
@@ -373,7 +379,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
 
             {/* --- OFERTA IRRESISTÍVEL (PRICING) --- */}
             <section className="py-24 md:py-32 px-6 relative overflow-hidden">
-                {/* Background Gold Glow */}
                 <div className="absolute inset-0 bg-gradient-to-b from-[#080808] to-amber-950/20 pointer-events-none"></div>
 
                 <div className="max-w-5xl mx-auto relative z-10">
@@ -387,7 +392,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
 
                         <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto items-center">
                             
-                            {/* Monthly Plan */}
                             <div className="order-2 md:order-1 bg-[#111] border border-white/5 rounded-[2rem] p-8 md:p-10 transition-all duration-300 opacity-90 hover:opacity-100 hover:scale-[1.02]">
                                 <h3 className="text-xl font-bold text-gray-200 mb-2 font-serif">Plano Mensal</h3>
                                 <div className="flex items-baseline gap-1 leading-none text-white mb-6">
@@ -408,7 +412,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                                 </button>
                             </div>
 
-                            {/* Annual Plan (Featured) */}
                             <div className="order-1 md:order-2 relative bg-[#0a0a0a] border-2 border-amber-500/50 rounded-[2.5rem] p-8 md:p-12 overflow-hidden shadow-[0_0_50px_rgba(245,158,11,0.2)] transform transition-all duration-300 scale-105 z-10">
                                 <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-yellow-600 text-black text-[10px] md:text-xs font-bold px-6 py-2 rounded-bl-2xl uppercase tracking-widest shadow-lg font-sans">
                                     Melhor Oferta
@@ -485,13 +488,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
             <footer className="py-12 border-t border-white/5 bg-[#050505] font-sans">
                 <div className="max-w-4xl mx-auto px-6 flex flex-col items-center text-center">
                     
-                    {/* Brand */}
                     <div className="flex items-center gap-2 mb-8 opacity-50 hover:opacity-100 transition-opacity cursor-default">
                         <SparkleIcon className="text-violet-500" />
                         <span className="font-bold text-gray-400">Inspira+</span>
                     </div>
 
-                    {/* Links Grid - Centered */}
                     <div className="flex flex-wrap justify-center gap-12 md:gap-24 mb-10 w-full">
                          <div className="flex flex-col gap-4">
                             <h4 className="font-bold text-gray-600 uppercase tracking-widest text-[10px]">Legal</h4>

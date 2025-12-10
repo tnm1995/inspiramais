@@ -291,7 +291,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
                     </button>
                 </section>
 
-                <div className="pt-6 pb-4">
+                <div className="pt-8 pb-10 mt-auto">
                     <button onClick={onLogout} className="flex items-center w-full p-4 bg-white rounded-lg hover:bg-red-50 transition-colors text-left ring-1 ring-gray-200 group" aria-label="Sair da conta">
                         <div className="flex items-center space-x-4">
                             <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center group-hover:bg-red-200 transition-colors">
