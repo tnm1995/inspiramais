@@ -79,7 +79,7 @@ const TestimonialCard: React.FC<{ text: string; author: string; label: string }>
             <p className="text-gray-200 mb-6 leading-relaxed text-base md:text-lg font-light font-serif">"{text}"</p>
         </div>
         <div className="flex items-center gap-4">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center font-bold text-white shadow-lg text-lg font-sans">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-br from-violet-50 to-fuchsia-500 flex items-center justify-center font-bold text-white shadow-lg text-lg font-sans">
                 {author.charAt(0)}
             </div>
             <div>
@@ -189,10 +189,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                         <div className="flex flex-col items-center pt-8">
                             <button 
                                 onClick={onLoginClick}
-                                className="group relative w-full sm:w-auto px-8 md:px-12 py-4 md:py-5 bg-white text-black rounded-full font-bold font-sans text-lg shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.4)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 overflow-hidden"
+                                className="group relative w-auto px-8 md:px-10 py-3 md:py-4 bg-white text-black rounded-full font-bold font-sans text-base md:text-lg shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:shadow-[0_0_60px_rgba(255,255,255,0.4)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 overflow-hidden"
                             >
-                                <span className="relative z-10">Começar sequência de 30 dias</span>
-                                <ArrowRightIcon className="relative z-10 text-xl group-hover:translate-x-1 transition-transform" />
+                                <span className="relative z-10">Começar Agora</span>
+                                <ArrowRightIcon className="relative z-10 text-lg md:text-xl group-hover:translate-x-1 transition-transform" />
                                 <div className="absolute inset-0 bg-gradient-to-r from-gray-100 to-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             </button>
                         </div>
