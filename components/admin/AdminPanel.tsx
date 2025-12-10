@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon, PhoneIcon, QuoteIcon, CheckIcon, WarningIcon } from '../Icons';
-import { UserData, AppConfig, Quote } from '../../types';
+import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon, PhoneIcon } from '../Icons';
+import { UserData, AppConfig } from '../../types';
 import { db, auth } from '../../firebaseConfig';
-import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc, addDoc, query, orderBy } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 import { usePageTracking } from '../../hooks/usePageTracking';
 
 interface AdminPanelProps {
@@ -20,7 +19,7 @@ interface AdminUser {
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage }) => {
     usePageTracking('/admin');
-    const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'quotes'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'settings'>('users');
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -43,20 +42,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     const [newUserName, setNewUserName] = useState('');
     const [newUserPremium, setNewUserPremium] = useState(false);
 
-    // Custom Quotes State
-    const [customQuotes, setCustomQuotes] = useState<Quote[]>([]);
-    const [quoteText, setQuoteText] = useState('');
-    const [quoteAuthor, setQuoteAuthor] = useState('');
-    const [quoteCategory, setQuoteCategory] = useState('');
-    const [isSavingQuote, setIsSavingQuote] = useState(false);
-
     useEffect(() => {
         if (activeTab === 'users') {
             loadUsers();
-        } else if (activeTab === 'settings') {
+        } else {
             loadConfig();
-        } else if (activeTab === 'quotes') {
-            loadCustomQuotes();
         }
     }, [activeTab]);
 
@@ -69,7 +59,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             }
         } catch (error: any) {
             console.error("Error loading config:", error);
-            setToastMessage({ message: "Falha ao carregar configurações.", type: 'error' });
+            setToastMessage({ message: "Falha ao carregar configurações. Verifique sua conexão.", type: 'error' });
         }
     };
 
@@ -101,66 +91,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             setToastMessage({ message: "Erro ao carregar usuários.", type: 'error' });
         } finally {
             setIsLoading(false);
-        }
-    };
-
-    const loadCustomQuotes = async () => {
-        setIsLoading(true);
-        try {
-            const q = query(collection(db, "custom_quotes"), orderBy("createdAt", "desc"));
-            const querySnapshot = await getDocs(q);
-            const quotesList: Quote[] = [];
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                quotesList.push({ 
-                    id: doc.id, 
-                    text: data.text, 
-                    author: data.author, 
-                    category: data.category,
-                    liked: false, 
-                    backgroundImage: ''
-                });
-            });
-            setCustomQuotes(quotesList);
-        } catch (error) {
-            console.warn("Could not load custom quotes (maybe collection empty):", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleAddQuote = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!quoteText) return;
-        setIsSavingQuote(true);
-        try {
-            await addDoc(collection(db, "custom_quotes"), {
-                text: quoteText,
-                author: quoteAuthor || "Desconhecida",
-                category: quoteCategory || "Inspiração",
-                createdAt: new Date().toISOString()
-            });
-            setToastMessage({ message: "Citação adicionada!", type: 'success' });
-            setQuoteText('');
-            setQuoteAuthor('');
-            setQuoteCategory('');
-            loadCustomQuotes();
-        } catch (error) {
-            console.error("Error adding quote:", error);
-            setToastMessage({ message: "Erro ao adicionar citação.", type: 'error' });
-        } finally {
-            setIsSavingQuote(false);
-        }
-    };
-
-    const handleDeleteQuote = async (id: string) => {
-        if (!confirm("Tem certeza que deseja excluir esta citação?")) return;
-        try {
-            await deleteDoc(doc(db, "custom_quotes", id));
-            setToastMessage({ message: "Citação removida.", type: 'success' });
-            loadCustomQuotes();
-        } catch (error) {
-            setToastMessage({ message: "Erro ao remover.", type: 'error' });
         }
     };
 
@@ -230,7 +160,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
 
     const handleLogout = async () => {
         try {
-            await signOut(auth);
+            await auth.signOut();
             onClose(); 
         } catch (error) {
             console.error("Logout error", error);
@@ -244,7 +174,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         if (!newUserEmail || !newUserName || !newUserPassword) return;
 
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail, newUserPassword);
+            const userCredential = await auth.createUserWithEmailAndPassword(newUserEmail, newUserPassword);
             const user = userCredential.user;
 
             const today = new Date().toISOString().split('T')[0];
@@ -322,22 +252,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                 </div>
 
                 {/* Tabs */}
-                <div className="flex px-6 gap-6 overflow-x-auto scrollbar-hide">
+                <div className="flex px-6 gap-6">
                     <button 
                         onClick={() => setActiveTab('users')}
-                        className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap ${activeTab === 'users' ? 'text-white border-indigo-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                        className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeTab === 'users' ? 'text-white border-indigo-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
                     >
                         Usuários
                     </button>
                     <button 
-                        onClick={() => setActiveTab('quotes')}
-                        className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap ${activeTab === 'quotes' ? 'text-white border-indigo-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
-                    >
-                        Citações
-                    </button>
-                    <button 
                         onClick={() => setActiveTab('settings')}
-                        className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap ${activeTab === 'settings' ? 'text-white border-indigo-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                        className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeTab === 'settings' ? 'text-white border-indigo-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
                     >
                         Configurações
                     </button>
@@ -447,88 +371,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                             >
                                 {isSavingConfig ? "Salvando..." : "Salvar Alterações"}
                             </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* QUOTES TAB */}
-                {activeTab === 'quotes' && (
-                    <div className="space-y-6 max-w-4xl mx-auto animate-slide-in-up">
-                        <section className="bg-[#111] border border-white/10 rounded-2xl p-6">
-                            <div className="flex items-center gap-2 mb-6">
-                                <QuoteIcon className="text-violet-500 text-xl" />
-                                <h2 className="text-lg font-bold">Cadastrar Citação Manual</h2>
-                            </div>
-                            
-                            <form onSubmit={handleAddQuote} className="space-y-4">
-                                <div>
-                                    <label className="block text-xs text-gray-400 mb-1">Frase</label>
-                                    <textarea 
-                                        value={quoteText}
-                                        onChange={(e) => setQuoteText(e.target.value)}
-                                        placeholder="Digite a citação aqui..."
-                                        rows={3}
-                                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-indigo-500 outline-none resize-none"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">Autora (Opcional)</label>
-                                        <input 
-                                            type="text" 
-                                            value={quoteAuthor}
-                                            onChange={(e) => setQuoteAuthor(e.target.value)}
-                                            placeholder="Ex: Clarice Lispector"
-                                            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-indigo-500 outline-none"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-400 mb-1">Categoria (Opcional)</label>
-                                        <input 
-                                            type="text" 
-                                            value={quoteCategory}
-                                            onChange={(e) => setQuoteCategory(e.target.value)}
-                                            placeholder="Ex: Autoestima, Força..."
-                                            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-indigo-500 outline-none"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <button 
-                                        type="submit"
-                                        disabled={!quoteText || isSavingQuote}
-                                        className="bg-violet-600 hover:bg-violet-700 text-white font-bold px-6 py-2 rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50"
-                                    >
-                                        {isSavingQuote ? "Salvando..." : "Adicionar Citação"}
-                                    </button>
-                                </div>
-                            </form>
-                        </section>
-
-                        <div className="space-y-4">
-                            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest px-1">Citações Cadastradas ({customQuotes.length})</h3>
-                            {isLoading ? (
-                                <div className="text-center py-10 text-gray-500">Carregando...</div>
-                            ) : customQuotes.length === 0 ? (
-                                <div className="text-center text-gray-500 py-10 border border-white/5 rounded-2xl bg-[#111]">Nenhuma citação cadastrada.</div>
-                            ) : (
-                                customQuotes.map((q) => (
-                                    <div key={q.id} className="bg-[#111] border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-colors group relative">
-                                        <button 
-                                            onClick={() => handleDeleteQuote(q.id)}
-                                            className="absolute top-4 right-4 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500/10 p-2 rounded-lg hover:bg-red-500/20"
-                                            title="Excluir"
-                                        >
-                                            <CloseIcon className="text-sm" />
-                                        </button>
-                                        <p className="text-white font-serif text-lg mb-2">"{q.text}"</p>
-                                        <div className="flex gap-3 text-xs text-gray-500">
-                                            {q.author && <span className="font-bold uppercase tracking-wider">{q.author}</span>}
-                                            {q.category && <span className="bg-white/5 px-2 py-0.5 rounded border border-white/5">{q.category}</span>}
-                                        </div>
-                                    </div>
-                                ))
-                            )}
                         </div>
                     </div>
                 )}

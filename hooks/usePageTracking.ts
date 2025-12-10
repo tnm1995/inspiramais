@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { analytics } from '../firebaseConfig';
-import { logEvent, Analytics } from "firebase/analytics";
+import { logEvent } from 'firebase/analytics';
 
 /**
  * Hook to track screen/page views in Firebase Analytics.
@@ -9,20 +9,14 @@ import { logEvent, Analytics } from "firebase/analytics";
 export const usePageTracking = (pageName: string) => {
     useEffect(() => {
         try {
-            if (analytics) {
-                // Explicitly cast to Analytics to fix types
-                const analyticsInstance = analytics as Analytics;
-
-                // Cast event name to 'any' to bypass strict overload matching that causes 'never' type error
-                logEvent(analyticsInstance, 'screen_view' as any, {
-                    firebase_screen_class: pageName,
-                    firebase_screen_name: pageName
-                });
-                // Also log a custom event for easier filtering if needed
-                logEvent(analyticsInstance, 'page_view' as any, {
-                    page_title: pageName
-                });
-            }
+            logEvent(analytics, 'screen_view', {
+                firebase_screen: pageName,
+                screen_name: pageName
+            } as any);
+            // Also log a custom event for easier filtering if needed
+            logEvent(analytics, 'page_view', {
+                page_title: pageName
+            } as any);
         } catch (error) {
             console.warn("Analytics Error:", error);
         }

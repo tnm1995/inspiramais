@@ -1,9 +1,6 @@
-
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { Quote, UserData, DailyMotivation } from '../types';
 import { getLocalQuotes } from './quoteDatabase';
-import { db } from '../firebaseConfig';
-import { collection, getDocs, limit, query, where, orderBy } from 'firebase/firestore';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
@@ -138,61 +135,14 @@ export const generateDailyFocus = async (userData: UserData): Promise<{ title: s
     }
 };
 
-const fetchCustomQuotesFromFirestore = async (): Promise<Quote[]> => {
-    try {
-        // Fetch up to 20 random-ish custom quotes (sorting by createdAt descending for now)
-        const q = query(collection(db, "custom_quotes"), limit(20));
-        const querySnapshot = await getDocs(q);
-        
-        const quotes: Quote[] = [];
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            quotes.push({
-                id: doc.id,
-                text: data.text,
-                author: data.author || "Desconhecida",
-                category: data.category || "Inspiração",
-                liked: false,
-                imageUrl: '',
-                backgroundImage: ''
-            });
-        });
-        return quotes;
-    } catch (error) {
-        console.warn("Could not fetch custom quotes:", error);
-        return [];
-    }
-};
 
 export const generateQuotesFromAI = async (userData: UserData, existingQuotes: Quote[], isInitialFetch: boolean, activeFilter: string | null): Promise<Quote[]> => {
     
     const userTopics = userData.topics || [];
 
-    // On initial fetch, try to mix custom quotes with local/AI quotes
-    if (isInitialFetch) {
-        const customQuotes = await fetchCustomQuotesFromFirestore();
-        
-        // If we have custom quotes, mix them in immediately for instant load
-        if (customQuotes.length > 0) {
-            // Shuffle custom quotes
-            const shuffledCustom = customQuotes.sort(() => 0.5 - Math.random()).slice(0, 5);
-            
-            // Get some local quotes as well
-            const local = getLocalQuotes(activeFilter ? [activeFilter] : userTopics, 5);
-            
-            // Interleave them
-            const mixed = [...shuffledCustom, ...local].sort(() => 0.5 - Math.random());
-            
-            if (mixed.length > 0) {
-                console.log("Serving mixed Custom + Local quotes");
-                return mixed;
-            }
-        }
-        
-        if (!existingQuotes || existingQuotes.length === 0) {
-            console.log("Instant Load: Serving local quotes");
-            return getLocalQuotes(activeFilter ? [activeFilter] : userTopics, 12);
-        }
+    if (isInitialFetch && (!existingQuotes || existingQuotes.length === 0)) {
+        console.log("Instant Load: Serving local quotes");
+        return getLocalQuotes(activeFilter ? [activeFilter] : userTopics, 12);
     }
 
     const previousTexts = existingQuotes ? existingQuotes.slice(-20).map(q => q.text.substring(0, 15)).join(" | ") : "";
