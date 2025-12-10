@@ -1,10 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon } from '../Icons';
 import { UserData, AppConfig } from '../../types';
-import { db } from '../../firebaseConfig';
+import { db, auth } from '../../firebaseConfig';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth';
 import { usePageTracking } from '../../hooks/usePageTracking';
 
 interface AdminPanelProps {
@@ -156,9 +154,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     };
 
     const handleLogout = async () => {
-        const auth = getAuth();
         try {
-            await signOut(auth);
+            await auth.signOut();
             onClose(); 
         } catch (error) {
             console.error("Logout error", error);
@@ -172,7 +169,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         if (!newUserEmail || !newUserName || !newUserPassword) return;
 
         try {
-            const userCredential = await createUserWithEmailAndPassword(getAuth(), newUserEmail, newUserPassword);
+            const userCredential = await auth.createUserWithEmailAndPassword(newUserEmail, newUserPassword);
             const user = userCredential.user;
 
             const today = new Date().toISOString().split('T')[0];

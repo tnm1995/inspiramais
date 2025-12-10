@@ -1,25 +1,15 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth } from '../firebaseConfig';
-import { 
-    onAuthStateChanged, 
-    signInWithEmailAndPassword, 
-    createUserWithEmailAndPassword, 
-    signOut, 
-    GoogleAuthProvider,
-    signInWithPopup,
-    sendPasswordResetEmail
-} from 'firebase/auth';
-import type { User, UserCredential } from 'firebase/auth';
+import firebase from 'firebase/compat/app';
 import { LoginFormData, SignupFormData } from '../types';
 
 interface AuthContextType {
-  currentUser: User | null;
+  currentUser: firebase.User | null;
   isAuthenticated: boolean;
   userEmail: string | null;
   login: (data: LoginFormData) => Promise<void>;
   signup: (data: SignupFormData) => Promise<void>;
-  loginWithGoogle: () => Promise<UserCredential>;
+  loginWithGoogle: () => Promise<firebase.auth.UserCredential>;
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
@@ -29,12 +19,12 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<firebase.User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
       setIsLoading(false);
     });
@@ -44,7 +34,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
   const login = async (data: LoginFormData) => {
     setAuthError(null);
     try {
-        await signInWithEmailAndPassword(auth, data.email, data.password);
+        await auth.signInWithEmailAndPassword(data.email, data.password);
     } catch (error: any) {
         console.error("Login error:", error);
         let msg = "Falha ao entrar.";
@@ -60,9 +50,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
       setAuthError(null);
       try {
           // Create Auth User
-          await createUserWithEmailAndPassword(auth, data.email, data.password);
-          // Note: UserData creation in Firestore is handled by the UserDataContext or App logic 
-          // right after this promise resolves, or via a trigger.
+          await auth.createUserWithEmailAndPassword(data.email, data.password);
       } catch (error: any) {
           console.error("Signup error:", error);
           let msg = "Falha ao criar conta.";
@@ -75,9 +63,9 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
 
   const loginWithGoogle = async () => {
     setAuthError(null);
-    const provider = new GoogleAuthProvider();
+    const provider = new firebase.auth.GoogleAuthProvider();
     try {
-        const result = await signInWithPopup(auth, provider);
+        const result = await auth.signInWithPopup(provider);
         return result;
     } catch (error: any) {
         console.error("Google login error:", error);
@@ -91,7 +79,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
   const resetPassword = async (email: string) => {
       setAuthError(null);
       try {
-          await sendPasswordResetEmail(auth, email);
+          await auth.sendPasswordResetEmail(email);
       } catch (error: any) {
           console.error("Reset password error:", error);
           let msg = "Falha ao enviar e-mail de redefinição.";
@@ -104,7 +92,7 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
 
   const logout = async () => {
     try {
-        await signOut(auth);
+        await auth.signOut();
     } catch (error) {
         console.error("Error during logout:", error);
     }

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { UserDataProvider, useUserData } from './context/UserDataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -17,7 +16,7 @@ import { AdminPanel } from './components/admin/AdminPanel';
 import { SubscriptionExpiredScreen } from './components/main/SubscriptionExpiredScreen';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
-import { User } from 'firebase/auth';
+import firebase from 'firebase/compat/app';
 import { GoogleCpfScreen } from './components/auth/screens/GoogleCpfScreen';
 
 
@@ -57,7 +56,7 @@ const AppContent = () => {
     const [tempSignupData, setTempSignupData] = useState<SignupFormData | null>(null);
     
     // Google Auth Pending State (waiting for CPF)
-    const [pendingGoogleUser, setPendingGoogleUser] = useState<User | null>(null);
+    const [pendingGoogleUser, setPendingGoogleUser] = useState<firebase.User | null>(null);
     
     // Legal Screens State
     const [showTerms, setShowTerms] = useState(false);
