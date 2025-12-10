@@ -107,9 +107,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
         if (window.location.href.includes('blob:')) return;
 
         // Ensure the URL is correct for the landing page
-        if (window.location.pathname !== '/ladingpage') {
+        if (window.location.pathname !== '/landingpage') {
             try {
-                window.history.replaceState({}, '', '/ladingpage');
+                window.history.replaceState({}, '', '/landingpage');
             } catch (e) {
                 // Silently ignore navigation errors in restricted environments
             }

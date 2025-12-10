@@ -42,7 +42,7 @@ export enum OnboardingStep {
 
 // Map steps to URL slugs
 const STEP_URLS: Record<number, string> = {
-    [OnboardingStep.Landing]: '/ladingpage',
+    [OnboardingStep.Landing]: '/landingpage', // Fixed typo
     [OnboardingStep.Welcome]: '/onboarding/welcome',
     [OnboardingStep.Source]: '/onboarding/source',
     [OnboardingStep.Age]: '/onboarding/age',
@@ -113,7 +113,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, on
                      // For safety, let's just set it as current, keeping Landing as base if needed
                      return [OnboardingStep.Landing, mappedStep];
                  });
-             } else if (path === '/ladingpage' || path === '/') {
+             } else if (path === '/landingpage' || path === '/') {
                  setHistory([OnboardingStep.Landing]);
              }
         };
@@ -198,7 +198,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, on
             case OnboardingStep.AppGoals: return <AppGoalsScreen onNext={next} onBack={back} progress={progress} />;
             case OnboardingStep.Goals: return <GoalsScreen onNext={next} onBack={back} progress={progress} />;
             case OnboardingStep.Topics: return <TopicsScreen onNext={finishOnboarding} onBack={back} progress={progress} />;
-            default: return <div>Step not found</div>;
+            default: return <LandingPage onGetStarted={next} onLoginClick={onLoginClick} onShowTerms={onShowTerms} onShowPrivacy={onShowPrivacy} />;
         }
     };
 

@@ -54,7 +54,7 @@ const ROUTES = {
     GAMIFICATION: '/gamification',
     PREMIUM: '/premium',
     FILTER: '/filter',
-    LANDING: '/ladingpage',
+    LANDING: '/landingpage', // Fixed typo
     LOGIN: '/login',
     SIGNUP: '/cadastro',
     EXPLORE: '/explore',
@@ -294,6 +294,14 @@ const AppContent = () => {
              handleRoute();
         } else if (!isAuthenticated) {
             // Handle Login/Signup/Landing routes
+            // Also redirect root / to landing
+            if (window.location.pathname === '/') {
+                if (!window.location.href.includes('blob:')) {
+                    try {
+                        window.history.replaceState({}, '', ROUTES.LANDING);
+                    } catch (e) {}
+                }
+            }
             handleRoute();
         }
 
