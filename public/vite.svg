@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <defs>
     <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7c3aed"/> <!-- violet-600 -->
-      <stop offset="100%" stop-color="#4f46e5"/> <!-- indigo-600 -->
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
     </linearGradient>
     <filter id="glow">
       <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
@@ -13,15 +13,11 @@
     </filter>
   </defs>
   
-  <!-- Background Rounded Square -->
   <rect width="100" height="100" rx="22" fill="url(#grad)" />
   
-  <!-- Main Sparkle (Center) -->
   <path fill="white" filter="url(#glow)" d="M50 15 C55 38 62 45 85 50 C62 55 55 62 50 85 C45 62 38 55 15 50 C38 45 45 38 50 15 Z" />
   
-  <!-- Small Sparkle (Top Right) -->
   <path fill="white" opacity="0.8" d="M75 20 C77 28 80 30 88 32 C80 34 77 37 75 45 C73 37 70 34 62 32 C70 30 73 28 75 20 Z" />
   
-  <!-- Small Sparkle (Bottom Left) -->
   <path fill="white" opacity="0.6" d="M25 65 C26 70 28 72 33 73 C28 74 26 76 25 81 C24 76 22 74 17 73 C22 72 24 70 25 65 Z" />
 </svg>
