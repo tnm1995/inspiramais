@@ -1,3 +1,4 @@
+
 import { useEffect } from 'react';
 import { analytics } from '../firebaseConfig';
 import { logEvent, Analytics } from "firebase/analytics";
@@ -14,8 +15,8 @@ export const usePageTracking = (pageName: string) => {
                 const analyticsInstance = analytics as Analytics;
 
                 logEvent(analyticsInstance, 'screen_view', {
-                    firebase_screen: pageName,
-                    screen_name: pageName
+                    firebase_screen_class: pageName,
+                    firebase_screen_name: pageName
                 });
                 // Also log a custom event for easier filtering if needed
                 logEvent(analyticsInstance, 'page_view', {
