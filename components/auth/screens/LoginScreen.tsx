@@ -169,21 +169,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 
     // Helper for input borders
     const getInputClass = (hasError: boolean = false, isValid: boolean = false) => {
-        const base = "w-full py-4 pl-12 pr-4 bg-white/5 border rounded-2xl text-white placeholder-gray-500 focus:outline-none transition-all duration-300 backdrop-blur-sm";
-        if (hasError) return `${base} border-red-500/50 focus:border-red-500 focus:bg-white/10`;
-        if (isValid) return `${base} border-green-500/50 focus:border-green-500 focus:bg-white/10`;
-        return `${base} border-white/10 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 focus:bg-white/10`;
+        const base = "w-full py-4 pl-12 pr-4 bg-[#1a1a1a] border rounded-2xl text-white placeholder-gray-500 focus:outline-none transition-all duration-300";
+        if (hasError) return `${base} border-red-500/50 focus:border-red-500`;
+        if (isValid) return `${base} border-green-500/50 focus:border-green-500`;
+        return `${base} border-white/10 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50`;
     };
 
     return (
-         <div className="fixed inset-0 z-50 bg-[#020204] text-white flex flex-col items-center justify-center overflow-hidden font-sans">
+         <div className="min-h-screen w-full bg-[#020204] text-white flex flex-col items-center justify-center py-12 px-6 font-sans overflow-y-auto">
             
             {/* Ambient Background */}
-            <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[60%] bg-violet-900/20 rounded-full blur-[120px] pointer-events-none animate-pulse-slow"></div>
-            <div className="absolute bottom-[-10%] right-[-10%] w-[80%] h-[60%] bg-indigo-900/10 rounded-full blur-[120px] pointer-events-none"></div>
-            <div className="absolute inset-0 bg-noise opacity-[0.03] pointer-events-none mix-blend-overlay"></div>
+            <div className="fixed top-[-20%] left-[-10%] w-[80%] h-[60%] bg-violet-900/20 rounded-full blur-[120px] pointer-events-none animate-pulse-slow"></div>
+            <div className="fixed bottom-[-10%] right-[-10%] w-[80%] h-[60%] bg-indigo-900/10 rounded-full blur-[120px] pointer-events-none"></div>
+            <div className="fixed inset-0 bg-noise opacity-[0.03] pointer-events-none mix-blend-overlay"></div>
             
-            {/* Back Button */}
+            {/* Back Button - Fixed position relative to viewport */}
             {(onBack && !isSuccess) && (
                 <button 
                     onClick={() => showForgotPassword ? setShowForgotPassword(false) : onBack()}
@@ -193,9 +193,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                 </button>
             )}
 
-            <div className="relative z-10 w-full max-w-md h-full flex flex-col justify-center px-6 md:px-0">
+            <div className="relative z-10 w-full max-w-md flex flex-col items-center">
                 
-                {/* Logo & Branding */}
+                {/* Logo & Branding - Added distinct bottom margin */}
                 <div className={`flex flex-col items-center mb-8 flex-shrink-0 transition-all duration-700 ease-out ${isSuccess ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}>
                     <div className="w-16 h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(124,58,237,0.3)] mb-5 transform rotate-3 border border-white/10">
                         <SparkleIcon className="text-3xl text-white" />
@@ -206,12 +206,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                     <p className="text-gray-500 text-sm mt-2 font-medium tracking-wide">Sua jornada diária começa aqui.</p>
                 </div>
 
-                {/* Main Card */}
-                <div className="bg-[#0a0a0a]/90 backdrop-blur-2xl border border-white/10 p-6 md:p-8 rounded-[2rem] shadow-2xl overflow-y-auto max-h-[85vh] scrollbar-hide relative transition-all duration-500 flex flex-col" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+                {/* Main Card - Solid Background for better contrast */}
+                <div className="w-full bg-[#111] border border-white/10 p-6 md:p-8 rounded-[2rem] shadow-2xl relative transition-all duration-500 flex flex-col">
                     
                     {/* Success Overlay */}
                     {isSuccess && (
-                        <div className="absolute inset-0 z-50 bg-[#0a0a0a] flex flex-col items-center justify-center rounded-[2rem] animate-fade-in p-8 text-center">
+                        <div className="absolute inset-0 z-50 bg-[#111] flex flex-col items-center justify-center rounded-[2rem] animate-fade-in p-8 text-center">
                             <div className="w-24 h-24 rounded-full bg-green-500/10 flex items-center justify-center mb-6 animate-pop shadow-[0_0_30px_rgba(34,197,94,0.2)] border border-green-500/20">
                                 <CheckIcon className="text-5xl text-green-500" />
                             </div>
@@ -314,8 +314,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 
                                 <form onSubmit={handleSubmit} className="space-y-4">
                                     
-                                    {/* Signup Fields Accordion */}
-                                    <div className={`space-y-4 overflow-hidden transition-all duration-500 ease-in-out ${activeTab === 'signup' ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                    {/* Signup Fields Accordion - Uses auto height */}
+                                    <div className={`space-y-4 overflow-hidden transition-all duration-500 ease-in-out ${activeTab === 'signup' ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                         <div className="relative group">
                                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                                 <UserCircleIcon className="text-gray-500 group-focus-within:text-violet-400 transition-colors" />
@@ -478,7 +478,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                     <button 
                                         type="button"
                                         onClick={handleGoogleLogin}
-                                        className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-3 group active:scale-[0.98]"
+                                        className="w-full bg-[#1a1a1a] hover:bg-[#252525] border border-white/10 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-3 group active:scale-[0.98]"
                                     >
                                         <GoogleIcon className="w-5 h-5 grayscale group-hover:grayscale-0 transition-all opacity-80 group-hover:opacity-100" />
                                         <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">Google</span>
