@@ -14,6 +14,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase using the Modular SDK pattern
+// Use wildcard import to workaround potential type definition issues with named exports
 const app = firebaseApp.initializeApp(firebaseConfig);
 
 // Initialize Services
