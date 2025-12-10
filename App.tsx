@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { UserDataProvider, useUserData } from './context/UserDataContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -712,7 +713,7 @@ const AppContent = () => {
                             </div>
                             <span className="text-white font-bold text-base leading-none">{userData?.stats?.level || 1}</span>
                              {userData?.stats?.currentStreak ? (
-                                 <div className="flex items-center text-orange-400 text-xs gap-1 ml-1 border-l border-white/10 pl-2 leading-none">
+                                 <div className="flex items-center text-orange-400 text-xs gap-1 ml-1 border-l border-white/10 pl-2 leading-none" title="Sequência de dias">
                                      <FlameIcon className="text-lg" />
                                      <span className="font-bold">{userData.stats.currentStreak}</span>
                                  </div>

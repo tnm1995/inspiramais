@@ -280,12 +280,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
                             <span className="text-gray-800 font-medium">Fale Conosco (WhatsApp)</span>
                         </div>
                     </button>
-                    <button onClick={() => openLink(appConfig?.supportLink)} className="flex items-center justify-between w-full p-4 bg-white rounded-lg hover:bg-gray-100 transition-colors text-left ring-1 ring-gray-200">
-                        <div className="flex items-center space-x-4">
-                            <LinkIcon className="text-2xl text-blue-500" aria-hidden="true" />
-                            <span className="text-gray-800 font-medium">Central de Ajuda</span>
-                        </div>
-                    </button>
                 </section>
 
                 <section aria-labelledby="about-title" className="space-y-3 pb-8">

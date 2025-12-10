@@ -99,8 +99,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
         annualTotal: '118,80',
         checkoutLinkMonthly: '',
         checkoutLinkAnnual: '',
-        whatsappLink: '',
-        supportLink: ''
+        whatsappLink: ''
     });
 
     useEffect(() => {
@@ -342,7 +341,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                             <h2 className="text-3xl md:text-5xl font-serif text-white mb-4">
                                 Mais de 38 mil mulheres
                             </h2>
-                            <p className="text-gray-400 text-lg font-sans">Já mantiveram o streak por mais de 45 dias.</p>
+                            <p className="text-gray-400 text-lg font-sans">Já mantiveram a sequência por mais de 45 dias.</p>
                         </div>
                     </ScrollFade>
 
@@ -504,13 +503,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                          <div className="flex flex-col gap-4">
                             <h4 className="font-bold text-gray-600 uppercase tracking-widest text-[10px]">Suporte</h4>
                             <div className="flex flex-col gap-2">
-                                {config.supportLink && (
-                                    <a href={config.supportLink} target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-violet-400 transition-colors">Central de Ajuda</a>
-                                )}
                                 {config.whatsappLink && (
                                     <a href={config.whatsappLink} target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-violet-400 transition-colors">Fale Conosco</a>
                                 )}
-                                {!config.supportLink && !config.whatsappLink && (
+                                {!config.whatsappLink && (
                                     <span className="text-sm text-gray-600 cursor-not-allowed">Em breve</span>
                                 )}
                             </div>

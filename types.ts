@@ -85,5 +85,4 @@ export interface AppConfig {
     checkoutLinkMonthly: string;
     checkoutLinkAnnual: string;
     whatsappLink?: string; // Link para WhatsApp de suporte
-    supportLink?: string; // Link para Central de Ajuda
 }
