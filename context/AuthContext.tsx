@@ -6,12 +6,11 @@ import {
     signInWithEmailAndPassword, 
     createUserWithEmailAndPassword, 
     signOut, 
-    User,
     GoogleAuthProvider,
     signInWithPopup,
-    UserCredential,
     sendPasswordResetEmail
 } from 'firebase/auth';
+import type { User, UserCredential } from 'firebase/auth';
 import { LoginFormData, SignupFormData } from '../types';
 
 interface AuthContextType {
