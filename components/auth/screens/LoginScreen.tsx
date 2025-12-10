@@ -68,9 +68,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
     }, [formData.cpf]);
 
     const formatPhone = (value: string) => {
-        // Remove all non-digits
         const numbers = value.replace(/\D/g, '');
-        // Limit to 11 digits (DDD + 9 digits)
         const char = { 0: '(', 2: ') ', 7: '-' };
         let formatted = '';
         for (let i = 0; i < numbers.length; i++) {
@@ -91,7 +89,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
         }
 
         setFormData({ ...formData, [name]: value });
-        if (errorMessage) setErrorMessage(null); // Clear error on change
+        if (errorMessage) setErrorMessage(null);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -102,10 +100,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
         try {
             if (activeTab === 'login') {
                 await onLogin({ email: formData.email, password: formData.password, remember: rememberMe });
-                // Success is handled by prop callback usually via parent state change, but we can trigger anim here if we want
                 setIsSuccess(true);
             } else {
-                // Only allow signup if everything is valid
                 const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
                 
                 if (!isCpfValid) {
@@ -115,12 +111,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                 }
 
                 if (isPasswordValid) {
-                    
-                    // --- CPF UNIQUENESS CHECK (RIGOROSO) ---
+                    // CPF Check
                     const cpfClean = cleanCPF(formData.cpf);
                     try {
                         const usersRef = collection(db, "users");
-                        // Verifica se existe o CPF limpo (padrão)
                         const q = query(usersRef, where("cpf", "==", cpfClean));
                         const querySnapshot = await getDocs(q);
 
@@ -131,8 +125,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         }
                     } catch (firestoreError: any) {
                         console.error("Erro ao verificar CPF:", firestoreError);
-                        // Se der erro de permissão ou rede, bloqueamos por segurança, 
-                        // pois não conseguimos garantir a unicidade.
                         if (firestoreError.code === 'permission-denied') {
                              setErrorMessage("Erro de conexão. Não foi possível verificar o cadastro.");
                         } else {
@@ -141,22 +133,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         setIsSubmitting(false);
                         return;
                     }
-                    // -----------------------------
 
                     await onSignup({
                         name: formData.name,
                         email: formData.email,
                         password: formData.password,
                         phone: formData.phone,
-                        cpf: cpfClean, // Salva apenas números
+                        cpf: cpfClean,
                         remember: rememberMe
                     });
                     setIsSuccess(true);
                 }
             }
         } catch (error) {
-            // Error handling is done via props/parent usually setting message
-            // or simply reset state here
             setIsSubmitting(false);
         }
     };
@@ -178,57 +167,63 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
     const isLoginButtonDisabled = !formData.email || !formData.password || isSubmitting;
     const isSignupButtonDisabled = !formData.name || !formData.email || !formData.password || !isCpfValid || !formData.phone || !Object.values(passwordCriteria).every(Boolean) || isSubmitting;
 
-    const getCpfBorderClass = () => {
-        if (formData.cpf.length === 0) return 'border-white/10 focus:border-violet-500/50';
-        if (formData.cpf.length < 14) return 'border-white/10 focus:border-violet-500/50'; 
-        return isCpfValid ? 'border-green-500/50 focus:border-green-500' : 'border-red-500/50 focus:border-red-500';
+    // Helper for input borders
+    const getInputClass = (hasError: boolean = false, isValid: boolean = false) => {
+        const base = "w-full py-4 pl-12 pr-4 bg-white/5 border rounded-2xl text-white placeholder-gray-500 focus:outline-none transition-all duration-300 backdrop-blur-sm";
+        if (hasError) return `${base} border-red-500/50 focus:border-red-500 focus:bg-white/10`;
+        if (isValid) return `${base} border-green-500/50 focus:border-green-500 focus:bg-white/10`;
+        return `${base} border-white/10 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/50 focus:bg-white/10`;
     };
 
     return (
-         <div className="fixed inset-0 z-50 bg-[#050505] text-white flex flex-col items-center justify-center overflow-hidden font-sans">
+         <div className="fixed inset-0 z-50 bg-[#020204] text-white flex flex-col items-center justify-center overflow-hidden font-sans">
             
-            {/* Background Effects */}
-            <div className="absolute inset-0 aurora-background opacity-60 pointer-events-none"></div>
-            <div className="absolute inset-0 bg-noise opacity-[0.05] pointer-events-none mix-blend-overlay"></div>
+            {/* Ambient Background */}
+            <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[60%] bg-violet-900/20 rounded-full blur-[120px] pointer-events-none animate-pulse-slow"></div>
+            <div className="absolute bottom-[-10%] right-[-10%] w-[80%] h-[60%] bg-indigo-900/10 rounded-full blur-[120px] pointer-events-none"></div>
+            <div className="absolute inset-0 bg-noise opacity-[0.03] pointer-events-none mix-blend-overlay"></div>
             
             {/* Back Button */}
             {(onBack && !isSuccess) && (
                 <button 
                     onClick={() => showForgotPassword ? setShowForgotPassword(false) : onBack()}
-                    className="absolute top-6 left-6 z-20 w-10 h-10 rounded-full bg-black/20 backdrop-blur-md border border-white/10 flex items-center justify-center hover:bg-black/40 transition-colors"
+                    className="absolute top-6 left-6 z-20 w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 flex items-center justify-center transition-colors backdrop-blur-md"
                 >
-                    <ChevronLeftIcon className="text-2xl" />
+                    <ChevronLeftIcon className="text-xl text-gray-300" />
                 </button>
             )}
 
-            <div className="relative z-10 w-full max-w-md h-full flex flex-col justify-center px-4 md:px-0">
+            <div className="relative z-10 w-full max-w-md h-full flex flex-col justify-center px-6 md:px-0">
                 
-                {/* Header Logo - Reduced margin for mobile optimization */}
-                <div className={`flex flex-col items-center mb-4 flex-shrink-0 transition-all duration-500 ease-out ${isSuccess ? 'scale-0 opacity-0' : 'scale-100 opacity-100 animate-slide-in-up'}`}>
-                    <div className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(124,58,237,0.4)] mb-3 md:mb-4 transform rotate-3">
+                {/* Logo & Branding */}
+                <div className={`flex flex-col items-center mb-8 flex-shrink-0 transition-all duration-700 ease-out ${isSuccess ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}>
+                    <div className="w-16 h-16 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(124,58,237,0.3)] mb-5 transform rotate-3 border border-white/10">
                         <SparkleIcon className="text-3xl text-white" />
                     </div>
-                    <h1 className="text-2xl md:text-3xl font-bold font-sora tracking-tight">Inspira<span className="text-violet-500">+</span></h1>
+                    <h1 className="text-3xl font-bold font-sora tracking-tight text-white drop-shadow-xl">
+                        Inspira<span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-indigo-400">+</span>
+                    </h1>
+                    <p className="text-gray-500 text-sm mt-2 font-medium tracking-wide">Sua jornada diária começa aqui.</p>
                 </div>
 
-                {/* Glass Card - Enhanced for mobile scrolling */}
-                <div className="bg-[#111]/80 backdrop-blur-xl border border-white/10 p-5 md:p-8 rounded-3xl shadow-2xl overflow-y-auto max-h-[85vh] scrollbar-hide relative transition-all duration-500 animate-slide-in-up flex flex-col" style={{ animationDelay: '100ms' }}>
+                {/* Main Card */}
+                <div className="bg-[#0a0a0a]/90 backdrop-blur-2xl border border-white/10 p-6 md:p-8 rounded-[2rem] shadow-2xl overflow-y-auto max-h-[85vh] scrollbar-hide relative transition-all duration-500 flex flex-col" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
                     
                     {/* Success Overlay */}
                     {isSuccess && (
-                        <div className="absolute inset-0 z-50 bg-[#111] flex flex-col items-center justify-center rounded-3xl animate-fade-in p-8 text-center">
-                            <div className="w-24 h-24 rounded-full bg-green-500/20 flex items-center justify-center mb-6 animate-pop shadow-[0_0_30px_rgba(34,197,94,0.3)] border border-green-500/30">
+                        <div className="absolute inset-0 z-50 bg-[#0a0a0a] flex flex-col items-center justify-center rounded-[2rem] animate-fade-in p-8 text-center">
+                            <div className="w-24 h-24 rounded-full bg-green-500/10 flex items-center justify-center mb-6 animate-pop shadow-[0_0_30px_rgba(34,197,94,0.2)] border border-green-500/20">
                                 <CheckIcon className="text-5xl text-green-500" />
                             </div>
-                            <h2 className="text-3xl font-bold text-white mb-2 font-sora">
+                            <h2 className="text-3xl font-bold text-white mb-3 font-sora">
                                 {activeTab === 'login' ? 'Entrando...' : 'Sucesso!'}
                             </h2>
-                            <p className="text-gray-400 mb-6 font-sans">
-                                {activeTab === 'login' ? 'Preparando sua inspiração diária.' : 'Sua conta foi criada.'}
+                            <p className="text-gray-400 mb-8 font-sans leading-relaxed">
+                                {activeTab === 'login' ? 'Preparando sua inspiração diária.' : 'Sua conta foi criada com sucesso.'}
                             </p>
-                            <div className="flex items-center gap-2 text-violet-400 text-sm font-bold animate-pulse">
+                            <div className="flex items-center gap-3 text-violet-400 text-sm font-bold animate-pulse bg-violet-500/10 px-4 py-2 rounded-full border border-violet-500/20">
                                 <SparkleIcon />
-                                <span>Entrando no app...</span>
+                                <span>Acessando o app...</span>
                             </div>
                         </div>
                     )}
@@ -237,24 +232,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         
                         {/* VIEW: FORGOT PASSWORD */}
                         {showForgotPassword ? (
-                            <div className="animate-fade-in">
-                                <h2 className="text-xl font-bold text-white mb-2 text-center">Recuperar Senha</h2>
-                                <p className="text-sm text-gray-400 mb-6 text-center">
-                                    {isResetSent 
-                                        ? "Verifique seu e-mail (e a pasta de spam) para redefinir sua senha."
-                                        : "Digite seu e-mail cadastrado para receber um link de redefinição."
-                                    }
-                                </p>
+                            <div className="animate-fade-in space-y-6">
+                                <div className="text-center">
+                                    <h2 className="text-xl font-bold text-white font-sora mb-2">Recuperar Senha</h2>
+                                    <p className="text-sm text-gray-400 leading-relaxed">
+                                        {isResetSent 
+                                            ? "Verifique seu e-mail (e spam) para redefinir a senha."
+                                            : "Digite seu e-mail para receber o link de redefinição."
+                                        }
+                                    </p>
+                                </div>
 
                                 {isResetSent ? (
                                     <div className="space-y-4">
-                                        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center gap-3 text-green-400">
+                                        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-center gap-3 text-green-400">
                                             <CheckIcon className="text-xl" />
-                                            <span className="text-sm font-medium">E-mail enviado com sucesso!</span>
+                                            <span className="text-sm font-bold">E-mail enviado!</span>
                                         </div>
                                         <button 
                                             onClick={() => setShowForgotPassword(false)}
-                                            className="w-full bg-white/10 hover:bg-white/20 border border-white/10 text-white font-bold py-3.5 rounded-xl transition-all"
+                                            className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-4 rounded-2xl transition-all"
                                         >
                                             Voltar para o Login
                                         </button>
@@ -271,13 +268,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                                 onChange={(e) => setResetEmail(e.target.value)} 
                                                 placeholder="Seu e-mail" 
                                                 required 
-                                                className="w-full py-3.5 pl-12 pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all" 
+                                                className={getInputClass()} 
                                             />
                                         </div>
                                         <button
                                             type="submit"
                                             disabled={!resetEmail}
-                                            className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-violet-500/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                            className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-violet-500/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                         >
                                             Enviar Link
                                         </button>
@@ -294,29 +291,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         ) : (
                             /* VIEW: LOGIN / SIGNUP */
                             <>
-                                {/* Toggle Switch - Reduced margin */}
-                                <div className="flex p-1 bg-black/40 rounded-xl mb-4 relative border border-white/5 flex-shrink-0">
+                                {/* Custom Toggle Switch */}
+                                <div className="p-1.5 bg-black/40 rounded-full mb-8 border border-white/5 relative">
                                     <div 
-                                        className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-violet-600 rounded-lg transition-all duration-300 ease-spring shadow-lg ${activeTab === 'login' ? 'left-1' : 'left-[calc(50%+4px)]'}`}
+                                        className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white/10 border border-white/10 rounded-full transition-all duration-300 ease-out shadow-sm ${activeTab === 'login' ? 'left-1.5' : 'left-[calc(50%+4.5px)]'}`}
                                     ></div>
-                                    <button 
-                                        onClick={() => setActiveTab('login')} 
-                                        className={`flex-1 py-3 text-sm font-bold relative z-10 transition-colors duration-300 ${activeTab === 'login' ? 'text-white' : 'text-gray-400 hover:text-white'}`}
-                                    >
-                                        Entrar
-                                    </button>
-                                    <button 
-                                        onClick={() => setActiveTab('signup')} 
-                                        className={`flex-1 py-3 text-sm font-bold relative z-10 transition-colors duration-300 ${activeTab === 'signup' ? 'text-white' : 'text-gray-400 hover:text-white'}`}
-                                    >
-                                        Criar Conta
-                                    </button>
+                                    <div className="flex relative z-10">
+                                        <button 
+                                            onClick={() => setActiveTab('login')} 
+                                            className={`flex-1 py-3 text-sm font-bold rounded-full transition-colors duration-300 ${activeTab === 'login' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                                        >
+                                            Entrar
+                                        </button>
+                                        <button 
+                                            onClick={() => setActiveTab('signup')} 
+                                            className={`flex-1 py-3 text-sm font-bold rounded-full transition-colors duration-300 ${activeTab === 'signup' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                                        >
+                                            Criar Conta
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
+                                <form onSubmit={handleSubmit} className="space-y-4">
                                     
-                                    {/* Signup Specific Fields - Smooth accordion */}
-                                    <div className={`space-y-3 md:space-y-4 overflow-hidden transition-all duration-500 ease-in-out ${activeTab === 'signup' ? 'max-h-[500px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-4'}`}>
+                                    {/* Signup Fields Accordion */}
+                                    <div className={`space-y-4 overflow-hidden transition-all duration-500 ease-in-out ${activeTab === 'signup' ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
                                         <div className="relative group">
                                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                                 <UserCircleIcon className="text-gray-500 group-focus-within:text-violet-400 transition-colors" />
@@ -329,13 +328,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                                 placeholder="Nome completo" 
                                                 required={activeTab === 'signup'}
                                                 tabIndex={activeTab === 'signup' ? 0 : -1}
-                                                className="w-full py-3 md:py-3.5 pl-12 pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
+                                                className={getInputClass()} 
                                             />
                                         </div>
                                         
                                         <div className="relative group">
                                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                                <CreditCardIcon className={`group-focus-within:text-violet-400 transition-colors ${isCpfValid ? 'text-green-500' : 'text-gray-500'}`} />
+                                                <CreditCardIcon className={`transition-colors ${isCpfValid ? 'text-green-500' : 'text-gray-500 group-focus-within:text-violet-400'}`} />
                                             </div>
                                             <input 
                                                 type="text" 
@@ -346,31 +345,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                                 required={activeTab === 'signup'}
                                                 tabIndex={activeTab === 'signup' ? 0 : -1}
                                                 maxLength={14}
-                                                className={`w-full py-3 md:py-3.5 pl-12 pr-4 bg-black/30 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:bg-black/50 transition-all text-sm md:text-base ${getCpfBorderClass()}`} 
+                                                className={getInputClass(false, isCpfValid && formData.cpf.length === 14)} 
                                             />
-                                            {formData.cpf.length === 14 && !isCpfValid && activeTab === 'signup' && (
-                                                <div className="absolute right-3 top-3.5 text-red-500 animate-pulse">
-                                                    <CloseIcon />
-                                                </div>
-                                            )}
                                         </div>
                                         
                                         <div className="relative group">
                                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                                 <PhoneIcon className="text-gray-500 group-focus-within:text-violet-400 transition-colors" />
                                             </div>
-                                            <div className="absolute inset-y-0 left-12 flex items-center pointer-events-none">
-                                                <span className="text-gray-400 text-sm md:text-base font-medium pr-1 border-r border-white/10 h-5 flex items-center">+55</span>
-                                            </div>
                                             <input 
                                                 type="tel" 
                                                 name="phone" 
                                                 value={formData.phone} 
                                                 onChange={handleChange} 
-                                                placeholder="(00) 00000-0000" 
+                                                placeholder="Telefone" 
                                                 required={activeTab === 'signup'}
                                                 tabIndex={activeTab === 'signup' ? 0 : -1}
-                                                className="w-full py-3 md:py-3.5 pl-[85px] pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
+                                                className={getInputClass()} 
                                             />
                                         </div>
                                     </div>
@@ -387,7 +378,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                             onChange={handleChange} 
                                             placeholder="E-mail" 
                                             required 
-                                            className="w-full py-3 md:py-3.5 pl-12 pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
+                                            className={getInputClass()} 
                                         />
                                     </div>
 
@@ -402,30 +393,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                             onChange={handleChange} 
                                             placeholder="Senha" 
                                             required 
-                                            className="w-full py-3 md:py-3.5 pl-12 pr-4 bg-black/30 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50 focus:bg-black/50 transition-all text-sm md:text-base" 
+                                            className={getInputClass()} 
                                         />
                                     </div>
 
-                                    {/* Password Strength Indicators (Signup Only - Collapsible) */}
-                                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${activeTab === 'signup' ? 'max-h-[150px] opacity-100 translate-y-0' : 'max-h-0 opacity-0 -translate-y-2'}`}>
-                                        <div className="p-3 bg-black/20 rounded-lg border border-white/5 mt-2">
-                                            <p className="text-[10px] uppercase text-gray-500 font-bold tracking-wider mb-2">A senha deve conter:</p>
+                                    {/* Password Criteria (Signup Only) */}
+                                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${activeTab === 'signup' ? 'max-h-[150px] opacity-100 pt-2' : 'max-h-0 opacity-0'}`}>
+                                        <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                                            <p className="text-[10px] uppercase text-gray-500 font-bold tracking-wider mb-3">Requisitos da senha</p>
                                             <div className="grid grid-cols-2 gap-2">
-                                                <PasswordRequirement label="Mínimo 8 caracteres" met={passwordCriteria.hasLength} />
-                                                <PasswordRequirement label="Letra Maiúscula" met={passwordCriteria.hasUpper} />
-                                                <PasswordRequirement label="Letra Minúscula" met={passwordCriteria.hasLower} />
+                                                <PasswordRequirement label="8+ caracteres" met={passwordCriteria.hasLength} />
+                                                <PasswordRequirement label="Maiúscula" met={passwordCriteria.hasUpper} />
+                                                <PasswordRequirement label="Minúscula" met={passwordCriteria.hasLower} />
                                                 <PasswordRequirement label="Número" met={passwordCriteria.hasNumber} />
-                                                <PasswordRequirement label="Caractere Especial" met={passwordCriteria.hasSpecial} />
+                                                <PasswordRequirement label="Especial" met={passwordCriteria.hasSpecial} />
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Remember Me / Forgot Password (Login Only - Collapsible) */}
+                                    {/* Login Helpers */}
                                     <div className={`overflow-hidden transition-all duration-300 ease-in-out ${activeTab === 'login' ? 'max-h-[40px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                                        <div className="flex justify-between items-center pt-1">
+                                        <div className="flex justify-between items-center px-1">
                                             <label className="flex items-center cursor-pointer group select-none">
-                                                <div className={`w-4 h-4 rounded border transition-colors flex items-center justify-center ${rememberMe ? 'bg-violet-600 border-violet-600' : 'bg-transparent border-gray-600 group-hover:border-gray-400'}`}>
-                                                    {rememberMe && <CheckIcon className="text-white text-xs" />}
+                                                <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center ${rememberMe ? 'bg-violet-600 border-violet-600' : 'bg-transparent border-gray-600 group-hover:border-gray-400'}`}>
+                                                    {rememberMe && <CheckIcon className="text-white text-[10px]" />}
                                                 </div>
                                                 <input 
                                                     type="checkbox" 
@@ -433,63 +424,64 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                                                     checked={rememberMe} 
                                                     onChange={(e) => setRememberMe(e.target.checked)} 
                                                 />
-                                                <span className={`ml-2 text-xs transition-colors ${rememberMe ? 'text-gray-200' : 'text-gray-500 group-hover:text-gray-400'}`}>Lembrar de mim</span>
+                                                <span className="ml-2 text-xs text-gray-400 group-hover:text-gray-300 transition-colors">Lembrar</span>
                                             </label>
 
                                             <button 
                                                 type="button" 
                                                 onClick={() => {
                                                     setShowForgotPassword(true);
-                                                    setResetEmail(formData.email || ''); // Pre-fill email if typed
+                                                    setResetEmail(formData.email || '');
                                                     setIsResetSent(false);
                                                 }}
-                                                className="text-xs text-gray-400 hover:text-violet-400 transition-colors"
+                                                className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors"
                                             >
                                                 Esqueceu a senha?
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div className="pt-2">
+                                    {/* Submit Area */}
+                                    <div className="pt-4">
                                         {errorMessage && (
-                                            <div className="flex items-center gap-2 text-red-400 text-sm mb-3 bg-red-500/10 p-3 rounded-lg border border-red-500/20 animate-pop">
+                                            <div className="flex items-center gap-3 text-red-400 text-sm mb-4 bg-red-500/10 p-3 rounded-xl border border-red-500/20 animate-pop">
                                                 <WarningIcon className="text-lg flex-shrink-0" />
-                                                <span>{errorMessage}</span>
+                                                <span className="font-medium">{errorMessage}</span>
                                             </div>
                                         )}
 
                                         <button
                                             type="submit"
                                             disabled={activeTab === 'login' ? isLoginButtonDisabled : isSignupButtonDisabled}
-                                            className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-3.5 md:py-4 rounded-xl shadow-[0_0_20px_rgba(124,58,237,0.3)] hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                                            className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-4 rounded-2xl shadow-[0_0_25px_rgba(124,58,237,0.4)] hover:shadow-[0_0_35px_rgba(124,58,237,0.5)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 group"
                                         >
                                             {isSubmitting ? (
-                                                <span>Processando...</span>
+                                                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                                             ) : (
                                                 <>
-                                                    <span>{activeTab === 'login' ? "Acessar App" : "Começar Agora"}</span>
-                                                    <ArrowRightIcon />
+                                                    <span className="text-base tracking-wide">{activeTab === 'login' ? "Entrar" : "Cadastrar"}</span>
+                                                    <ArrowRightIcon className="group-hover:translate-x-1 transition-transform" />
                                                 </>
                                             )}
                                         </button>
                                     </div>
                                 </form>
                                 
-                                {/* Google Login Section */}
-                                <div className="mt-4 md:mt-6">
-                                    <div className="flex items-center gap-4 mb-4 md:mb-6">
+                                {/* Social Login */}
+                                <div className="mt-8">
+                                    <div className="flex items-center gap-4 mb-6">
                                         <div className="h-px bg-white/10 flex-1"></div>
-                                        <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Ou continue com</span>
+                                        <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Ou continue com</span>
                                         <div className="h-px bg-white/10 flex-1"></div>
                                     </div>
 
                                     <button 
                                         type="button"
                                         onClick={handleGoogleLogin}
-                                        className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-3 group active:scale-95"
+                                        className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-3 group active:scale-[0.98]"
                                     >
-                                        <GoogleIcon className="w-5 h-5" />
-                                        <span className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">Google</span>
+                                        <GoogleIcon className="w-5 h-5 grayscale group-hover:grayscale-0 transition-all opacity-80 group-hover:opacity-100" />
+                                        <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">Google</span>
                                     </button>
                                 </div>
                             </>
@@ -498,9 +490,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                 </div>
 
                 {/* Footer Link */}
-                <div className={`text-center mt-4 md:mt-6 mb-4 flex-shrink-0 transition-opacity duration-300 ${isSuccess ? 'opacity-0' : 'opacity-100'}`}>
-                     <p className="text-xs text-gray-600">
-                        Ao continuar, você concorda com nossos <br/> Termos de Uso e Política de Privacidade.
+                <div className={`text-center mt-8 pb-4 flex-shrink-0 transition-opacity duration-300 ${isSuccess ? 'opacity-0' : 'opacity-100'}`}>
+                     <p className="text-[10px] text-gray-600">
+                        Protegido por reCAPTCHA e sujeito à <br/> Política de Privacidade e Termos de Uso do Google.
                     </p>
                 </div>
 
@@ -510,8 +502,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
 };
 
 const PasswordRequirement: React.FC<{ label: string; met: boolean }> = ({ label, met }) => (
-    <div className={`flex items-center gap-1.5 transition-colors duration-300 ${met ? 'text-green-400' : 'text-gray-500'}`}>
-        {met ? <CheckIcon className="text-xs" /> : <div className="w-3 h-3 rounded-full border border-gray-600" />}
-        <span className="text-[10px] font-medium">{label}</span>
+    <div className={`flex items-center gap-2 transition-colors duration-300 ${met ? 'text-green-400' : 'text-gray-500'}`}>
+        <div className={`w-1.5 h-1.5 rounded-full ${met ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]' : 'bg-gray-600'}`} />
+        <span className="text-[10px] font-medium tracking-wide">{label}</span>
     </div>
 );
