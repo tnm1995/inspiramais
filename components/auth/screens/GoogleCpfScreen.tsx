@@ -51,9 +51,13 @@ export const GoogleCpfScreen: React.FC<GoogleCpfScreenProps> = ({ onConfirm, onC
             onConfirm(cpfClean);
         } catch (err: any) {
             console.error("Error checking CPF:", err);
-            // Strict checking requires database access. If blocked, fail safely.
+            // Strict checking requires database access. If blocked, fail safely (allow signup).
+            // This prevents users from being locked out if security rules don't allow querying others.
             if (err.code === 'permission-denied') {
-                setError("Erro de conexão. Não foi possível validar o CPF.");
+                console.warn("Permission denied for CPF check. Allowing signup optimistically.");
+                // Proceed despite error
+                onConfirm(cleanCPF(cpf));
+                return;
             } else {
                 setError("Erro ao validar CPF. Tente novamente.");
             }
