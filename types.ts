@@ -74,7 +74,7 @@ export interface LoginFormData {
 
 export interface SignupFormData extends LoginFormData {
   name: string;
-  phone?: string;
+  phone: string;
   cpf: string;
 }
 

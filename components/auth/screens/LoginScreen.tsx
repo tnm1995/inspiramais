@@ -193,7 +193,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
     };
 
     const isLoginButtonDisabled = !formData.email || !formData.password || isSubmitting;
-    const isSignupButtonDisabled = !formData.name || !formData.email || !formData.password || !isCpfValid || !formData.phone || !Object.values(passwordCriteria).every(Boolean) || isSubmitting;
+    const isSignupButtonDisabled = !formData.name || !formData.email || !formData.password || !formData.cpf || !isCpfValid || !formData.phone || !Object.values(passwordCriteria).every(Boolean) || isSubmitting;
 
     // Helper for input borders
     const getInputClass = (hasError: boolean = false, isValid: boolean = false) => {
