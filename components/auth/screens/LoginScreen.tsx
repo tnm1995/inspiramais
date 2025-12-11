@@ -137,24 +137,45 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                 }
 
                 if (isPasswordValid) {
-                    // CPF Check
+                    // Prepare clean values for check and save
                     const cpfClean = cleanCPF(formData.cpf);
+                    const phoneClean = formData.phone.replace(/\D/g, '');
+                    
                     try {
                         const usersRef = collection(db, "users");
-                        const q = query(usersRef, where("cpf", "==", cpfClean));
-                        const querySnapshot = await getDocs(q);
-
-                        if (!querySnapshot.empty) {
+                        
+                        // 1. Check CPF Duplicate
+                        const qCpf = query(usersRef, where("cpf", "==", cpfClean));
+                        const snapCpf = await getDocs(qCpf);
+                        if (!snapCpf.empty) {
                             setErrorMessage("Este CPF já possui um cadastro.");
                             setIsSubmitting(false);
                             return;
                         }
+
+                        // 2. Check Phone Duplicate
+                        const qPhone = query(usersRef, where("phone", "==", phoneClean));
+                        const snapPhone = await getDocs(qPhone);
+                        if (!snapPhone.empty) {
+                            setErrorMessage("Este telefone já possui um cadastro.");
+                            setIsSubmitting(false);
+                            return;
+                        }
+
+                        // 3. Check Email Duplicate (Firestore pre-check)
+                        const qEmail = query(usersRef, where("email", "==", trimmedEmail));
+                        const snapEmail = await getDocs(qEmail);
+                        if (!snapEmail.empty) {
+                            setErrorMessage("Este e-mail já possui um cadastro.");
+                            setIsSubmitting(false);
+                            return;
+                        }
+
                     } catch (firestoreError: any) {
-                        console.error("Erro ao verificar CPF:", firestoreError);
+                        console.error("Erro ao verificar duplicidade:", firestoreError);
                         // Se for erro de permissão (regras do Firestore), permitimos seguir para não travar o cadastro.
-                        // Em produção, isso significa que a validação de unicidade do CPF é "best effort" no cliente.
                         if (firestoreError.code === 'permission-denied') {
-                             console.warn("Validação de CPF pulada devido a permissões de segurança.");
+                             console.warn("Validação de duplicidade pulada devido a permissões de segurança.");
                         } else {
                              setErrorMessage("Erro ao validar dados. Tente novamente.");
                              setIsSubmitting(false);
@@ -166,14 +187,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         name: formData.name.trim(),
                         email: trimmedEmail,
                         password: password, 
-                        phone: formData.phone,
+                        phone: phoneClean, // Save clean phone
                         cpf: cpfClean,
                         remember: rememberMe
                     });
                     setIsSuccess(true);
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
+            console.error("Auth submit error:", error);
+            let msg = "Ocorreu um erro.";
+            if (error.code === 'auth/email-already-in-use') msg = "Este e-mail já está em uso.";
+            if (error.code === 'auth/invalid-email') msg = "E-mail inválido.";
+            if (error.code === 'auth/weak-password') msg = "Senha fraca.";
+            
+            // If activeTab is login
+            if (activeTab === 'login') {
+                 if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                     msg = "E-mail ou senha incorretos.";
+                 }
+            }
+
+            setErrorMessage(msg);
             setIsSubmitting(false);
         }
     };
