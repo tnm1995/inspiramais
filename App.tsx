@@ -18,7 +18,6 @@ import { SubscriptionExpiredScreen } from './components/main/SubscriptionExpired
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import firebase from 'firebase/compat/app';
-import { GoogleCpfScreen } from './components/auth/screens/GoogleCpfScreen';
 
 
 // Lazy load components
@@ -73,9 +72,6 @@ const AppContent = () => {
     const [loginInitialTab, setLoginInitialTab] = useState<'login' | 'signup'>('login');
     const [authAction, setAuthAction] = useState<'login' | 'signup' | null>(null);
     const [tempSignupData, setTempSignupData] = useState<SignupFormData | null>(null);
-    
-    // Google Auth Pending State (waiting for CPF)
-    const [pendingGoogleUser, setPendingGoogleUser] = useState<firebase.User | null>(null);
     
     // Legal Screens State
     const [showTerms, setShowTerms] = useState(false);
@@ -351,7 +347,7 @@ const AppContent = () => {
             initializeUser({
                 name: tempSignupData.name,
                 onboardingComplete: false,
-                cpf: tempSignupData.cpf,
+                // CPF optional/removed
             }).then(() => {
                 setToastMessage({ message: `Conta criada!`, type: 'success' });
                 setAuthAction(null);
@@ -365,7 +361,7 @@ const AppContent = () => {
     // This effect ensures that if the user is authenticated and data is ready,
     // they are NOT stuck on the login screen or landing page route.
     useEffect(() => {
-        const isFullyAuthorized = isAuthenticated && userData && !isUserDataLoading && !pendingGoogleUser;
+        const isFullyAuthorized = isAuthenticated && userData && !isUserDataLoading;
 
         if (isFullyAuthorized) {
             // 1. Force close login modal if open
@@ -385,7 +381,7 @@ const AppContent = () => {
                 safePushRoute(ROUTES.HOME);
             }
         }
-    }, [isAuthenticated, userData, isUserDataLoading, pendingGoogleUser, showLogin, authAction, safePushRoute]);
+    }, [isAuthenticated, userData, isUserDataLoading, showLogin, authAction, safePushRoute]);
 
     // Fetch Daily Motivation (Restored)
     useEffect(() => {
@@ -648,6 +644,7 @@ const AppContent = () => {
             await login(data);
         } catch (e) {
             setAuthAction(null);
+            throw e; // Rethrow so LoginScreen can catch and show error
         }
     };
 
@@ -658,6 +655,7 @@ const AppContent = () => {
             await signup(data);
         } catch (e) {
             setAuthAction(null);
+            throw e; // Rethrow so LoginScreen can catch and show error
         }
     };
 
@@ -671,8 +669,15 @@ const AppContent = () => {
             const docSnap = await getDoc(userDocRef);
 
             if (!docSnap.exists()) {
-                // New user via Google - INTERCEPT HERE
-                setPendingGoogleUser(user);
+                // New user via Google - Create immediately
+                await initializeUser({
+                    name: user.displayName || 'Usuária',
+                    email: user.email || undefined,
+                    onboardingComplete: false,
+                    // No CPF required anymore
+                }, user.uid);
+                setToastMessage({ message: `Conta criada com sucesso!`, type: 'success' });
+                setShowLogin(false);
             } else {
                  setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
                  setShowLogin(false);
@@ -680,27 +685,6 @@ const AppContent = () => {
         } catch (error) {
             console.error("Google Login Handled Error:", error);
         }
-    };
-
-    const handleFinalizeGoogleSignup = async (cpf: string) => {
-        if (!pendingGoogleUser) return;
-
-        await initializeUser({
-            name: pendingGoogleUser.displayName || 'Usuária',
-            email: pendingGoogleUser.email || undefined,
-            onboardingComplete: false,
-            cpf: cpf
-        }, pendingGoogleUser.uid);
-
-        setToastMessage({ message: `Conta criada com sucesso!`, type: 'success' });
-        setPendingGoogleUser(null);
-        setShowLogin(false);
-    };
-
-    const handleCancelGoogleSignup = () => {
-        setPendingGoogleUser(null);
-        logout(); 
-        setToastMessage({ message: `Cadastro cancelado.`, type: 'error' });
     };
 
     const handleResetPassword = async (email: string) => {
@@ -717,7 +701,6 @@ const AppContent = () => {
         setShowProfile(false);
         setIsProfileClosing(false);
         setShowAdmin(false);
-        setPendingGoogleUser(null);
         setAuthAction(null); // Clear auth action to avoid zombie states
         
         // Ensure Login modal is OPEN so we see the Login Screen
@@ -765,15 +748,6 @@ const AppContent = () => {
     // Routing Logic
     if (showAdmin) {
         return <AdminPanel onClose={handleHideAdmin} setToastMessage={setToastMessage} />;
-    }
-
-    if (pendingGoogleUser) {
-        return (
-            <GoogleCpfScreen 
-                onConfirm={handleFinalizeGoogleSignup}
-                onCancel={handleCancelGoogleSignup}
-            />
-        );
     }
 
     if (showLogin) {
