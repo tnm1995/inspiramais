@@ -179,25 +179,39 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     };
 
     const importLocalQuotes = async () => {
-        if (!window.confirm(`Isso irá adicionar ${localQuotesDb.length} citações locais ao banco de dados online. Continuar?`)) return;
+        if (!window.confirm(`Isso irá verificar e adicionar novas citações do arquivo local ao banco de dados. Continuar?`)) return;
         
         setIsLoading(true);
-        let count = 0;
         try {
-            const batchPromises = localQuotesDb.map(async (quote) => {
-                // Check dupes conceptually by text to avoid spamming if ran twice (simple check)
-                // Ideally this would be robust, but for admin helper simple add is ok.
-                await addDoc(collection(db, "library"), {
+            // 1. Get existing quotes to prevent duplicates
+            const existingSnapshot = await getDocs(collection(db, "library"));
+            const existingTexts = new Set();
+            existingSnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.text) existingTexts.add(data.text);
+            });
+
+            // 2. Filter local quotes that aren't in Firestore yet
+            const newQuotes = localQuotesDb.filter(q => !existingTexts.has(q.text));
+
+            if (newQuotes.length === 0) {
+                setToastMessage({ message: "Todas as citações locais já foram importadas.", type: 'success' });
+                return;
+            }
+
+            // 3. Add them
+            const batchPromises = newQuotes.map(quote => {
+                return addDoc(collection(db, "library"), {
                     text: quote.text,
                     author: quote.author || "Desconhecida",
                     category: quote.category || "Inspiração",
                     type: 'quote',
                     imageUrl: ''
                 });
-                count++;
             });
+
             await Promise.all(batchPromises);
-            setToastMessage({ message: `${count} citações importadas com sucesso!`, type: 'success' });
+            setToastMessage({ message: `${newQuotes.length} novas citações importadas com sucesso!`, type: 'success' });
             loadContent();
         } catch (error) {
             console.error(error);
@@ -443,7 +457,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                         </div>
 
                         {/* Import Helper */}
-                        {contentItems.length === 0 && !isLoading && (
+                        {contentItems.length === 0 && !isLoading ? (
                             <div className="bg-amber-900/20 border border-amber-500/30 p-6 rounded-2xl text-center">
                                 <p className="text-amber-200 mb-4">A biblioteca de conteúdo online está vazia.</p>
                                 <button 
@@ -453,6 +467,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                                     Importar Citações Iniciais do App
                                 </button>
                             </div>
+                        ) : (
+                             // Also show import button if library has items but user might want to sync new local additions
+                             <div className="flex justify-end">
+                                 <button 
+                                    onClick={importLocalQuotes}
+                                    className="text-xs text-gray-500 hover:text-white underline"
+                                >
+                                    Sincronizar novas citações locais
+                                </button>
+                             </div>
                         )}
 
                         {isLoading && <div className="text-center py-10 text-gray-500">Carregando biblioteca...</div>}
