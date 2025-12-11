@@ -1,3 +1,4 @@
+
 import { Quote } from '../types';
 
 // Banco de dados local focado em empoderamento feminino e sabedoria feminina.
@@ -36,11 +37,21 @@ export const localQuotesDb: Omit<Quote, 'liked' | 'imageUrl' | 'backgroundImage'
     { id: generateId(), text: "Cuidar de si mesma é parte de cuidar da sua família.", author: "Desconhecida", category: "MATERNIDADE" },
     { id: generateId(), text: "Você está criando o futuro. Respire fundo, mãe.", author: "Desconhecida", category: "FAMÍLIA" },
 
+    // --- FILHOS & CRIAÇÃO ---
+    { id: generateId(), text: "Os filhos são herança do Senhor, uma recompensa que ele dá.", author: "Salmos 127:3", category: "FILHOS" },
+    { id: generateId(), text: "Eduque a criança no caminho em que deve andar, e até o fim da vida não se desviará dele.", author: "Provérbios 22:6", category: "FILHOS" },
+    { id: generateId(), text: "O maior legado que deixamos aos filhos são raízes e asas.", author: "Desconhecida", category: "FILHOS" },
+
     // --- FELICIDADE & GRATIDÃO ---
     { id: generateId(), text: "A felicidade é um perfume que você não pode passar nos outros sem conseguir algumas gotas em si mesma.", author: "Desconhecida", category: "FELICIDADE" },
     { id: generateId(), text: "Gratidão transforma o que temos em suficiente.", author: "Melody Beattie", category: "GRATIDÃO" },
     { id: generateId(), text: "Renda-se, como eu me rendi. Mergulhe no que você não conhece como eu mergulhei.", author: "Clarice Lispector", category: "ESPIRITUALIDADE" },
     
+    // --- RELIGIÃO & FÉ ---
+    { id: generateId(), text: "A fé não torna as coisas fáceis, torna-as possíveis.", author: "Lucas 1:37", category: "RELIGIÃO" },
+    { id: generateId(), text: "Tudo posso naquele que me fortalece.", author: "Filipenses 4:13", category: "RELIGIÃO" },
+    { id: generateId(), text: "Porque eu bem sei os pensamentos que tenho a vosso respeito, diz o Senhor; pensamentos de paz, e não de mal, para vos dar o fim que esperais.", author: "Jeremias 29:11", category: "RELIGIÃO" },
+
     // --- AMIZADE & SORORIDADE ---
     { id: generateId(), text: "Quando uma mulher ajuda outra, ambas se curam.", author: "Desconhecida", category: "SORORIDADE" },
     { id: generateId(), text: "Cercada de mulheres fortes, me tornei uma.", author: "Desconhecida", category: "AMIZADE" },

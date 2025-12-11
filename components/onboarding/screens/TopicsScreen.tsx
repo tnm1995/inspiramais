@@ -1,11 +1,12 @@
+
 import React, { useState } from 'react';
 import { OnboardingLayout } from '../../ui/OnboardingLayout';
 import { GradientButton } from '../../ui/ContinueButton';
 import { useUserData } from '../../../context/UserDataContext';
 
 const categories = [
-    "Autoamor & Autoestima", "Maternidade Real", "Empreendedorismo Feminino", 
-    "Liderança Feminina", "Sagrado Feminino", "Ciclos Naturais", 
+    "Autoamor & Autoestima", "Maternidade Real", "Filhos", "Empreendedorismo Feminino", 
+    "Liderança Feminina", "Sagrado Feminino", "Religião", "Ciclos Naturais", 
     "Ansiedade & Saúde Mental", "Relacionamentos Saudáveis", "Carreira & Propósito", 
     "Independência Financeira", "Espiritualidade", "Gratidão Diária", 
     "Superação & Força", "Corpo Positivo", "Amizade & Sororidade", 

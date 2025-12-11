@@ -114,10 +114,10 @@ const appGoalsOptions = [
 ];
 const topicOptions = [
     "Carreira", "Finanças", "Sucesso", "Filosofia", "Estoicismo", "Mindfulness", 
-    "Amor", "Relacionamentos", "Família", "Amizade", "Superação", "Resiliência", 
+    "Amor", "Relacionamentos", "Família", "Filhos", "Amizade", "Superação", "Resiliência", 
     "Saúde Mental", "Ansiedade", "Depressão", "Autoestima", "Confiança", 
     "Motivação Fitness", "Luto", "Perdão", "Gratidão", "Felicidade", 
-    "Espiritualidade", "Arte", "Criatividade", "Liderança", "Citações de Filmes"
+    "Espiritualidade", "Religião", "Arte", "Criatividade", "Liderança", "Citações de Filmes"
 ].sort((a,b) => a.localeCompare(b));
 
 
