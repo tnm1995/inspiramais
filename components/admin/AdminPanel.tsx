@@ -184,6 +184,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             secondaryApp = firebase.initializeApp(firebaseConfig, appName);
             const secondaryAuth = secondaryApp.auth();
 
+            // IMPEDIR QUE A NOVA CONTA FAÇA LOGIN AUTOMÁTICO NA SESSÃO PRINCIPAL
+            await secondaryAuth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+
             const userCredential = await secondaryAuth.createUserWithEmailAndPassword(newUserEmail, newUserPassword);
             const user = userCredential.user;
 
