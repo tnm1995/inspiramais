@@ -128,8 +128,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onBack, quotes, on
                     setAppConfig(docSnap.data() as AppConfig);
                 }
             } catch (error: any) {
-                // Ignore permission errors
-                console.warn("Could not load support links:", error);
+                // Ignore permission/offline errors
+                if (error.code !== 'permission-denied' && error.code !== 'unavailable' && !error.message?.includes('offline')) {
+                    console.warn("Could not load support links:", error);
+                }
             }
         };
         fetchConfig();

@@ -19,4 +19,10 @@ const app = firebase.initializeApp(firebaseConfig);
 
 export const auth = app.auth();
 export const db = app.firestore();
+
+// Enable offline persistence
+db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+    console.warn("Firestore Persistence Error:", err.code);
+});
+
 export const analytics = app.analytics();

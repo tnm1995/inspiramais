@@ -107,9 +107,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
         if (window.location.href.includes('blob:')) return;
 
         // Ensure the URL is correct for the landing page
-        if (window.location.pathname !== '/landingpage') {
+        if (window.location.pathname !== '/ladingpage') {
             try {
-                window.history.replaceState({}, '', '/landingpage');
+                window.history.replaceState({}, '', '/ladingpage');
             } catch (e) {
                 // Silently ignore navigation errors in restricted environments
             }
@@ -125,7 +125,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted, onLoginC
                     setConfig(docSnap.data() as AppConfig);
                 }
             } catch (error: any) {
-                if (error.code !== 'permission-denied') {
+                if (error.code !== 'permission-denied' && error.code !== 'unavailable' && !error.message?.includes('offline')) {
                     console.error("Error loading pricing config", error);
                 }
             }
