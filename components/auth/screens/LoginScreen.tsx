@@ -118,9 +118,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
         e.preventDefault();
         setErrorMessage(null);
         setIsSubmitting(true);
+        setIsSuccess(false); // Reset success state explicitly
 
         const trimmedEmail = formData.email.trim();
-        // NOTA: Não usamos trim() na senha para permitir espaços intencionais e manter compatibilidade
         const password = formData.password;
 
         try {
@@ -137,15 +137,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                 }
 
                 if (isPasswordValid) {
-                    // Prepare clean values for check and save
+                    // Prepare values for check (Clean vs Formatted)
+                    // We check BOTH to handle legacy data that might be formatted in DB
                     const cpfClean = cleanCPF(formData.cpf);
+                    const cpfFormatted = formatCPF(cpfClean);
+                    
                     const phoneClean = formData.phone.replace(/\D/g, '');
+                    const phoneFormatted = formatPhone(phoneClean);
                     
                     try {
                         const usersRef = collection(db, "users");
                         
-                        // 1. Check CPF Duplicate
-                        const qCpf = query(usersRef, where("cpf", "==", cpfClean));
+                        // 1. Check CPF Duplicate (Check both clean and formatted)
+                        const qCpf = query(usersRef, where("cpf", "in", [cpfClean, cpfFormatted]));
                         const snapCpf = await getDocs(qCpf);
                         if (!snapCpf.empty) {
                             setErrorMessage("Este CPF já possui um cadastro.");
@@ -153,8 +157,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                             return;
                         }
 
-                        // 2. Check Phone Duplicate
-                        const qPhone = query(usersRef, where("phone", "==", phoneClean));
+                        // 2. Check Phone Duplicate (Check both clean and formatted)
+                        const qPhone = query(usersRef, where("phone", "in", [phoneClean, phoneFormatted]));
                         const snapPhone = await getDocs(qPhone);
                         if (!snapPhone.empty) {
                             setErrorMessage("Este telefone já possui um cadastro.");
@@ -162,27 +166,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                             return;
                         }
 
-                        // 3. Check Email Duplicate (Firestore pre-check)
+                        // 3. Check Email Duplicate in Firestore (Pre-check)
                         const qEmail = query(usersRef, where("email", "==", trimmedEmail));
                         const snapEmail = await getDocs(qEmail);
                         if (!snapEmail.empty) {
-                            setErrorMessage("Este e-mail já possui um cadastro.");
+                            setErrorMessage("Este e-mail já possui um cadastro. Tente fazer login.");
                             setIsSubmitting(false);
                             return;
                         }
 
                     } catch (firestoreError: any) {
                         console.error("Erro ao verificar duplicidade:", firestoreError);
-                        // Se for erro de permissão (regras do Firestore), permitimos seguir para não travar o cadastro.
-                        if (firestoreError.code === 'permission-denied') {
-                             console.warn("Validação de duplicidade pulada devido a permissões de segurança.");
-                        } else {
+                        // Permission denied usually means restricted rules, we allow to proceed to Auth check
+                        if (firestoreError.code !== 'permission-denied') {
                              setErrorMessage("Erro ao validar dados. Tente novamente.");
                              setIsSubmitting(false);
                              return;
                         }
                     }
 
+                    // Attempt Signup
                     await onSignup({
                         name: formData.name.trim(),
                         email: trimmedEmail,
@@ -191,17 +194,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         cpf: cpfClean,
                         remember: rememberMe
                     });
+                    
+                    // Only reach here if onSignup didn't throw
                     setIsSuccess(true);
                 }
             }
         } catch (error: any) {
             console.error("Auth submit error:", error);
+            setIsSuccess(false); // Ensure success is false on error
+            
             let msg = "Ocorreu um erro.";
-            if (error.code === 'auth/email-already-in-use') msg = "Este e-mail já está em uso.";
+            if (error.code === 'auth/email-already-in-use') msg = "Este e-mail já está em uso. Tente entrar.";
             if (error.code === 'auth/invalid-email') msg = "E-mail inválido.";
             if (error.code === 'auth/weak-password') msg = "Senha fraca.";
             
-            // If activeTab is login
             if (activeTab === 'login') {
                  if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
                      msg = "E-mail ou senha incorretos.";
