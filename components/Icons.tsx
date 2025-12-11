@@ -80,3 +80,6 @@ export const DownloadIcon = (props: any) => <Icon iconName="download" {...props}
 export const HeartIcon = (props: any) => <Icon iconName="favorite" {...props} />;
 export const ArrowRightIcon = (props: any) => <Icon iconName="arrow_forward" {...props} />;
 export const BabyIcon = (props: any) => <Icon iconName="child_care" {...props} />;
+export const PlusIcon = (props: any) => <Icon iconName="add" {...props} />;
+export const TrashIcon = (props: any) => <Icon iconName="delete" {...props} />;
+export const SaveIcon = (props: any) => <Icon iconName="save" {...props} />;

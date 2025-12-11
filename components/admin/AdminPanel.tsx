@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
-import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon, PhoneIcon, EditIcon, LockIcon } from '../Icons';
-import { UserData, AppConfig } from '../../types';
+import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon, PhoneIcon, EditIcon, LockIcon, QuoteIcon, PlusIcon, TrashIcon, SaveIcon, FilterIcon } from '../Icons';
+import { UserData, AppConfig, Quote } from '../../types';
 import { db, auth } from '../../firebaseConfig';
-import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc, addDoc } from 'firebase/firestore';
 import { usePageTracking } from '../../hooks/usePageTracking';
+import { localQuotesDb } from '../../services/quoteDatabase';
 
 interface AdminPanelProps {
     onClose: () => void;
@@ -16,13 +18,39 @@ interface AdminUser {
     data: UserData;
 }
 
+interface ContentItem {
+    id?: string;
+    text: string;
+    author: string;
+    category: string;
+    type: 'quote' | 'daily'; // Citação normal ou Motivação do Dia
+    imageUrl?: string;
+}
+
+const CATEGORIES = [
+    "Autoamor & Autoestima", "Maternidade Real", "Filhos", "Empreendedorismo Feminino", 
+    "Liderança Feminina", "Sagrado Feminino", "Religião", "Ciclos Naturais", 
+    "Ansiedade & Saúde Mental", "Relacionamentos Saudáveis", "Carreira & Propósito", 
+    "Independência Financeira", "Espiritualidade", "Gratidão Diária", 
+    "Superação & Força", "Corpo Positivo", "Amizade & Sororidade", 
+    "Criatividade", "Intuição", "Equilíbrio Vida-Trabalho", 
+    "Resiliência", "Felicidade Plena"
+].sort();
+
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage }) => {
     usePageTracking('/admin');
-    const [activeTab, setActiveTab] = useState<'users' | 'settings'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'content'>('users');
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     
+    // Content State
+    const [contentItems, setContentItems] = useState<ContentItem[]>([]);
+    const [editingContent, setEditingContent] = useState<ContentItem | null>(null);
+    const [contentFilterType, setContentFilterType] = useState<'all' | 'quote' | 'daily'>('all');
+    const [contentFilterCategory, setContentFilterCategory] = useState<string>('all');
+    const [isSavingContent, setIsSavingContent] = useState(false);
+
     // Edit User State
     const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
     const [editName, setEditName] = useState('');
@@ -42,8 +70,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     useEffect(() => {
         if (activeTab === 'users') {
             loadUsers();
-        } else {
+        } else if (activeTab === 'settings') {
             loadConfig();
+        } else if (activeTab === 'content') {
+            loadContent();
         }
     }, [activeTab]);
 
@@ -90,6 +120,102 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             setIsLoading(false);
         }
     };
+
+    const loadContent = async () => {
+        setIsLoading(true);
+        try {
+            const querySnapshot = await getDocs(collection(db, "library"));
+            const items: ContentItem[] = [];
+            querySnapshot.forEach((doc) => {
+                items.push({ id: doc.id, ...doc.data() } as ContentItem);
+            });
+            setContentItems(items);
+        } catch (error) {
+            console.error("Error loading content:", error);
+            setToastMessage({ message: "Erro ao carregar conteúdo.", type: 'error' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // --- Content Logic ---
+
+    const handleSaveContent = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingContent) return;
+
+        setIsSavingContent(true);
+        try {
+            if (editingContent.id) {
+                // Update
+                const { id, ...data } = editingContent;
+                await updateDoc(doc(db, "library", id), data);
+                setToastMessage({ message: "Conteúdo atualizado!", type: 'success' });
+            } else {
+                // Create
+                await addDoc(collection(db, "library"), editingContent);
+                setToastMessage({ message: "Conteúdo criado!", type: 'success' });
+            }
+            setEditingContent(null);
+            loadContent();
+        } catch (error) {
+            console.error("Error saving content:", error);
+            setToastMessage({ message: "Erro ao salvar conteúdo.", type: 'error' });
+        } finally {
+            setIsSavingContent(false);
+        }
+    };
+
+    const handleDeleteContent = async (id: string) => {
+        if (window.confirm("Tem certeza que deseja excluir este item?")) {
+            try {
+                await deleteDoc(doc(db, "library", id));
+                setToastMessage({ message: "Item excluído.", type: 'success' });
+                loadContent();
+            } catch (error) {
+                setToastMessage({ message: "Erro ao excluir.", type: 'error' });
+            }
+        }
+    };
+
+    const importLocalQuotes = async () => {
+        if (!window.confirm(`Isso irá adicionar ${localQuotesDb.length} citações locais ao banco de dados online. Continuar?`)) return;
+        
+        setIsLoading(true);
+        let count = 0;
+        try {
+            const batchPromises = localQuotesDb.map(async (quote) => {
+                // Check dupes conceptually by text to avoid spamming if ran twice (simple check)
+                // Ideally this would be robust, but for admin helper simple add is ok.
+                await addDoc(collection(db, "library"), {
+                    text: quote.text,
+                    author: quote.author || "Desconhecida",
+                    category: quote.category || "Inspiração",
+                    type: 'quote',
+                    imageUrl: ''
+                });
+                count++;
+            });
+            await Promise.all(batchPromises);
+            setToastMessage({ message: `${count} citações importadas com sucesso!`, type: 'success' });
+            loadContent();
+        } catch (error) {
+            console.error(error);
+            setToastMessage({ message: "Erro na importação.", type: 'error' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const filteredContent = contentItems.filter(item => {
+        const matchesType = contentFilterType === 'all' || item.type === contentFilterType;
+        const matchesCategory = contentFilterCategory === 'all' || (item.category && item.category.toUpperCase() === contentFilterCategory.toUpperCase());
+        const matchesSearch = item.text.toLowerCase().includes(searchTerm.toLowerCase()) || item.author.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesType && matchesCategory && matchesSearch;
+    });
+
+
+    // --- User Management Logic (Existing) ---
 
     const handleRenew = async (userId: string, type: 'month' | 'year') => {
         const user = users.find(u => u.id === userId);
@@ -247,16 +373,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                 </div>
 
                 {/* Tabs */}
-                <div className="flex px-6 gap-6">
+                <div className="flex px-6 gap-6 overflow-x-auto scrollbar-hide">
                     <button 
                         onClick={() => setActiveTab('users')}
-                        className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeTab === 'users' ? 'text-white border-indigo-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                        className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap ${activeTab === 'users' ? 'text-white border-indigo-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
                     >
                         Usuários
                     </button>
                     <button 
+                        onClick={() => setActiveTab('content')}
+                        className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap ${activeTab === 'content' ? 'text-white border-indigo-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                    >
+                        Conteúdo
+                    </button>
+                    <button 
                         onClick={() => setActiveTab('settings')}
-                        className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeTab === 'settings' ? 'text-white border-indigo-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                        className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap ${activeTab === 'settings' ? 'text-white border-indigo-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
                     >
                         Configurações
                     </button>
@@ -265,6 +397,106 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
 
             {/* Content */}
             <main className="flex-grow overflow-y-auto p-6 space-y-8">
+                
+                {/* CONTENT TAB */}
+                {activeTab === 'content' && (
+                    <div className="space-y-6 animate-slide-in-up pb-20">
+                        {/* Filters & Actions */}
+                        <div className="flex flex-col md:flex-row gap-4 justify-between">
+                            <div className="flex gap-2 w-full md:w-auto">
+                                <input 
+                                    type="text" 
+                                    placeholder="Buscar conteúdo..." 
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 w-full"
+                                />
+                            </div>
+                            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                                <select 
+                                    value={contentFilterType}
+                                    onChange={(e) => setContentFilterType(e.target.value as any)}
+                                    className="bg-[#111] border border-white/10 rounded-xl px-3 py-3 text-white focus:outline-none focus:border-indigo-500"
+                                >
+                                    <option value="all">Todos os Tipos</option>
+                                    <option value="quote">Citações</option>
+                                    <option value="daily">Motivação Diária</option>
+                                </select>
+                                
+                                <select 
+                                    value={contentFilterCategory}
+                                    onChange={(e) => setContentFilterCategory(e.target.value)}
+                                    className="bg-[#111] border border-white/10 rounded-xl px-3 py-3 text-white focus:outline-none focus:border-indigo-500 max-w-[150px]"
+                                >
+                                    <option value="all">Todas as Categorias</option>
+                                    {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                </select>
+
+                                <button 
+                                    onClick={() => setEditingContent({ text: '', author: '', category: '', type: 'quote' })}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white w-12 h-full rounded-xl flex items-center justify-center transition-colors flex-shrink-0 shadow-lg"
+                                    title="Adicionar Novo"
+                                >
+                                    <PlusIcon className="text-xl" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Import Helper */}
+                        {contentItems.length === 0 && !isLoading && (
+                            <div className="bg-amber-900/20 border border-amber-500/30 p-6 rounded-2xl text-center">
+                                <p className="text-amber-200 mb-4">A biblioteca de conteúdo online está vazia.</p>
+                                <button 
+                                    onClick={importLocalQuotes}
+                                    className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded-full text-sm font-bold transition-colors"
+                                >
+                                    Importar Citações Iniciais do App
+                                </button>
+                            </div>
+                        )}
+
+                        {isLoading && <div className="text-center py-10 text-gray-500">Carregando biblioteca...</div>}
+
+                        {/* Content List */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filteredContent.map((item) => (
+                                <div key={item.id} className="bg-[#111] border border-white/5 rounded-2xl p-5 flex flex-col justify-between hover:border-white/20 transition-all group relative overflow-hidden">
+                                    {item.type === 'daily' && (
+                                        <div className="absolute top-0 right-0 bg-amber-500/20 text-amber-400 text-[9px] font-bold px-2 py-1 rounded-bl-lg border-b border-l border-amber-500/20 uppercase tracking-wider">
+                                            Motivação do Dia
+                                        </div>
+                                    )}
+                                    
+                                    <div className="mb-4">
+                                        <p className="text-white font-serif italic text-lg leading-snug mb-3">"{item.text}"</p>
+                                        <div className="flex justify-between items-end">
+                                            <p className="text-sm text-gray-400 font-bold">— {item.author}</p>
+                                            <span className="text-[10px] bg-white/10 text-gray-300 px-2 py-1 rounded-md uppercase tracking-wide">
+                                                {item.category}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-end gap-2 pt-4 border-t border-white/5 opacity-50 group-hover:opacity-100 transition-opacity">
+                                        <button 
+                                            onClick={() => setEditingContent(item)}
+                                            className="w-8 h-8 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/30 text-indigo-400 flex items-center justify-center transition-colors"
+                                        >
+                                            <EditIcon />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDeleteContent(item.id!)}
+                                            className="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/30 text-red-400 flex items-center justify-center transition-colors"
+                                        >
+                                            <TrashIcon />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* SETTINGS TAB */}
                 {activeTab === 'settings' && (
                     <div className="space-y-6 max-w-4xl mx-auto animate-slide-in-up">
@@ -481,6 +713,107 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                     </div>
                 )}
             </main>
+
+            {/* Content Editor Modal */}
+            {editingContent && (
+                <div className="fixed inset-0 z-[110] bg-black/80 flex items-center justify-center p-4">
+                    <div className="bg-[#1a1a1c] w-full max-w-lg rounded-2xl p-6 border border-white/10 shadow-2xl animate-pop max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold font-serif">{editingContent.id ? "Editar Conteúdo" : "Novo Conteúdo"}</h2>
+                            <button onClick={() => setEditingContent(null)}>
+                                <CloseIcon className="text-gray-400 hover:text-white" />
+                            </button>
+                        </div>
+                        
+                        <form onSubmit={handleSaveContent} className="space-y-4">
+                            <div>
+                                <label className="block text-sm text-gray-400 mb-1">Texto da Citação</label>
+                                <textarea 
+                                    required
+                                    rows={4}
+                                    value={editingContent.text}
+                                    onChange={e => setEditingContent({...editingContent, text: e.target.value})}
+                                    className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 resize-none"
+                                    placeholder="Escreva a mensagem inspiradora..."
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Autora</label>
+                                    <input 
+                                        type="text" 
+                                        value={editingContent.author}
+                                        onChange={e => setEditingContent({...editingContent, author: e.target.value})}
+                                        className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                                        placeholder="Ex: Clarice Lispector"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Categoria</label>
+                                    <select 
+                                        value={editingContent.category}
+                                        onChange={e => setEditingContent({...editingContent, category: e.target.value})}
+                                        className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
+                                    >
+                                        <option value="">Selecione...</option>
+                                        {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm text-gray-400 mb-2">Tipo de Conteúdo</label>
+                                <div className="flex gap-4">
+                                    <label className="flex items-center gap-2 cursor-pointer bg-white/5 px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 transition-colors flex-1 justify-center">
+                                        <input 
+                                            type="radio" 
+                                            checked={editingContent.type === 'quote'}
+                                            onChange={() => setEditingContent({...editingContent, type: 'quote'})}
+                                            className="hidden"
+                                        />
+                                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${editingContent.type === 'quote' ? 'border-indigo-500' : 'border-gray-500'}`}>
+                                            {editingContent.type === 'quote' && <div className="w-2 h-2 rounded-full bg-indigo-500"></div>}
+                                        </div>
+                                        <span className={editingContent.type === 'quote' ? 'text-white font-bold' : 'text-gray-400'}>Citação Normal</span>
+                                    </label>
+
+                                    <label className="flex items-center gap-2 cursor-pointer bg-white/5 px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 transition-colors flex-1 justify-center">
+                                        <input 
+                                            type="radio" 
+                                            checked={editingContent.type === 'daily'}
+                                            onChange={() => setEditingContent({...editingContent, type: 'daily'})}
+                                            className="hidden"
+                                        />
+                                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${editingContent.type === 'daily' ? 'border-amber-500' : 'border-gray-500'}`}>
+                                            {editingContent.type === 'daily' && <div className="w-2 h-2 rounded-full bg-amber-500"></div>}
+                                        </div>
+                                        <span className={editingContent.type === 'daily' ? 'text-amber-400 font-bold' : 'text-gray-400'}>Motivação do Dia</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 mt-6 pt-4 border-t border-white/10">
+                                <button 
+                                    type="button"
+                                    onClick={() => setEditingContent(null)}
+                                    className="flex-1 bg-transparent border border-white/10 hover:bg-white/5 text-white font-bold py-3 rounded-xl transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    disabled={isSavingContent}
+                                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    <SaveIcon />
+                                    {isSavingContent ? 'Salvando...' : 'Salvar Conteúdo'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Edit User Modal */}
             {editingUser && (
