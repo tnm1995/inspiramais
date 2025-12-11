@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon, PhoneIcon } from '../Icons';
 import { UserData, AppConfig } from '../../types';
-import { db, auth } from '../../firebaseConfig';
+import { db, auth, firebaseConfig } from '../../firebaseConfig';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 import { usePageTracking } from '../../hooks/usePageTracking';
+import firebase from 'firebase/compat/app';
 
 interface AdminPanelProps {
     onClose: () => void;
@@ -41,6 +42,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     const [newUserPassword, setNewUserPassword] = useState('');
     const [newUserName, setNewUserName] = useState('');
     const [newUserPremium, setNewUserPremium] = useState(false);
+    const [isCreatingUser, setIsCreatingUser] = useState(false);
 
     useEffect(() => {
         if (activeTab === 'users') {
@@ -169,47 +171,77 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
 
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!confirm("Atenção: Criar um usuário aqui fará o logout da sua conta de admin atual, pois o Firebase Auth Client SDK apenas suporta um usuário ativo por vez. Você terá que relogar como admin depois.")) return;
         
         if (!newUserEmail || !newUserName || !newUserPassword) return;
+        setIsCreatingUser(true);
+
+        // Create a secondary Firebase App instance to avoid logging out the current admin
+        let secondaryApp: firebase.app.App | null = null;
 
         try {
-            const userCredential = await auth.createUserWithEmailAndPassword(newUserEmail, newUserPassword);
+            // Unique name for the secondary app
+            const appName = "secondaryApp-" + new Date().getTime();
+            secondaryApp = firebase.initializeApp(firebaseConfig, appName);
+            const secondaryAuth = secondaryApp.auth();
+
+            const userCredential = await secondaryAuth.createUserWithEmailAndPassword(newUserEmail, newUserPassword);
             const user = userCredential.user;
 
-            const today = new Date().toISOString().split('T')[0];
-            const expiryDate = new Date();
-            expiryDate.setMonth(expiryDate.getMonth() + 1);
+            if (user) {
+                const today = new Date().toISOString().split('T')[0];
+                const expiryDate = new Date();
+                expiryDate.setMonth(expiryDate.getMonth() + 1);
 
-            const newUser: UserData = {
-                onboardingComplete: true,
-                isPremium: newUserPremium,
-                isAdmin: false,
-                subscriptionExpiry: newUserPremium ? expiryDate.toISOString() : undefined,
-                name: newUserName,
-                // @ts-ignore
-                email: newUserEmail, 
-                stats: {
-                    xp: 0,
-                    level: 1,
-                    currentStreak: 1,
-                    lastLoginDate: today,
-                    quests: [],
-                    totalQuotesRead: 0,
-                    totalShares: 0,
-                    totalLikes: 0
-                },
-                improvementAreas: [],
-                appGoals: [],
-                topics: []
-            };
+                const newUser: UserData = {
+                    onboardingComplete: true,
+                    isPremium: newUserPremium,
+                    isAdmin: false,
+                    subscriptionExpiry: newUserPremium ? expiryDate.toISOString() : undefined,
+                    name: newUserName,
+                    // @ts-ignore
+                    email: newUserEmail, 
+                    stats: {
+                        xp: 0,
+                        level: 1,
+                        currentStreak: 1,
+                        lastLoginDate: today,
+                        quests: [],
+                        totalQuotesRead: 0,
+                        totalShares: 0,
+                        totalLikes: 0
+                    },
+                    improvementAreas: [],
+                    appGoals: [],
+                    topics: []
+                };
 
-            await setDoc(doc(db, "users", user.uid), newUser);
-            window.location.reload(); 
+                // Use the MAIN db instance to write the data
+                await setDoc(doc(db, "users", user.uid), newUser);
+                
+                // Sign out the secondary user just in case
+                await secondaryAuth.signOut();
+                
+                setToastMessage({ message: "Usuário criado com sucesso!", type: 'success' });
+                setShowCreateModal(false);
+                setNewUserEmail('');
+                setNewUserPassword('');
+                setNewUserName('');
+                setNewUserPremium(false);
+                loadUsers();
+            }
 
         } catch (error: any) {
             console.error(error);
-            setToastMessage({ message: `Erro: ${error.message}`, type: 'error' });
+            let msg = error.message;
+            if (error.code === 'auth/email-already-in-use') msg = "E-mail já está em uso.";
+            if (error.code === 'auth/weak-password') msg = "Senha muito fraca.";
+            setToastMessage({ message: `Erro: ${msg}`, type: 'error' });
+        } finally {
+            // Clean up the secondary app
+            if (secondaryApp) {
+                await secondaryApp.delete();
+            }
+            setIsCreatingUser(false);
         }
     };
 
@@ -541,9 +573,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
 
                             <button 
                                 type="submit" 
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors mt-4"
+                                disabled={isCreatingUser}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors mt-4 disabled:opacity-50"
                             >
-                                Criar Conta (Fará Logout do Admin)
+                                {isCreatingUser ? 'Criando...' : 'Criar Conta'}
                             </button>
                         </form>
                     </div>
