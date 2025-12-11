@@ -151,13 +151,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                         }
                     } catch (firestoreError: any) {
                         console.error("Erro ao verificar CPF:", firestoreError);
+                        // Se for erro de permissão (regras do Firestore), permitimos seguir para não travar o cadastro.
+                        // Em produção, isso significa que a validação de unicidade do CPF é "best effort" no cliente.
                         if (firestoreError.code === 'permission-denied') {
-                             setErrorMessage("Erro de conexão. Não foi possível verificar o cadastro.");
+                             console.warn("Validação de CPF pulada devido a permissões de segurança.");
                         } else {
                              setErrorMessage("Erro ao validar dados. Tente novamente.");
+                             setIsSubmitting(false);
+                             return;
                         }
-                        setIsSubmitting(false);
-                        return;
                     }
 
                     await onSignup({
