@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon, PhoneIcon, EditIcon, LockIcon, QuoteIcon, PlusIcon, TrashIcon, SaveIcon, FilterIcon } from '../Icons';
+import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon, PhoneIcon, EditIcon, LockIcon, QuoteIcon, PlusIcon, TrashIcon, SaveIcon, FilterIcon, CachedIcon, CheckIcon, DownloadIcon } from '../Icons';
 import { UserData, AppConfig, Quote } from '../../types';
 import { db, auth } from '../../firebaseConfig';
-import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc, addDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc, addDoc, writeBatch } from 'firebase/firestore';
 import { usePageTracking } from '../../hooks/usePageTracking';
 import { localQuotesDb } from '../../services/quoteDatabase';
 
@@ -43,6 +43,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
     
     // Content State
     const [contentItems, setContentItems] = useState<ContentItem[]>([]);
@@ -73,7 +74,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         } else if (activeTab === 'settings') {
             loadConfig();
         } else if (activeTab === 'content') {
-            loadContent();
+            loadContentAndSync();
         }
     }, [activeTab]);
 
@@ -121,7 +122,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         }
     };
 
-    const loadContent = async () => {
+    const loadContentAndSync = async () => {
         setIsLoading(true);
         try {
             const querySnapshot = await getDocs(collection(db, "library"));
@@ -135,6 +136,51 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             setToastMessage({ message: "Erro ao carregar conteúdo.", type: 'error' });
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleImportLocalQuotes = async () => {
+        if (!window.confirm(`Isso vai importar todas as citações do arquivo local para o banco de dados online (evitando duplicatas). Deseja continuar?`)) return;
+
+        setIsSyncing(true);
+        try {
+            // 1. Get existing texts to prevent duplicates
+            const existingTexts = new Set(contentItems.map(item => item.text.trim().toLowerCase()));
+            
+            const batch = writeBatch(db);
+            let count = 0;
+            const BATCH_LIMIT = 450; // Firestore limit is 500
+
+            for (const localQuote of localQuotesDb) {
+                // If text doesn't exist in DB, add it
+                if (!existingTexts.has(localQuote.text.trim().toLowerCase())) {
+                    const docRef = doc(collection(db, "library"));
+                    batch.set(docRef, {
+                        text: localQuote.text,
+                        author: localQuote.author || "Desconhecida",
+                        category: localQuote.category || "Inspiração",
+                        type: 'quote', // Default to normal quote
+                        imageUrl: ''
+                    });
+                    count++;
+                    
+                    if (count >= BATCH_LIMIT) break; // Simple batch limit safety
+                }
+            }
+
+            if (count > 0) {
+                await batch.commit();
+                setToastMessage({ message: `${count} novas citações importadas!`, type: 'success' });
+                loadContentAndSync(); // Reload list
+            } else {
+                setToastMessage({ message: "Todas as citações locais já estão no banco.", type: 'success' });
+            }
+
+        } catch (error) {
+            console.error("Error importing quotes:", error);
+            setToastMessage({ message: "Erro na importação.", type: 'error' });
+        } finally {
+            setIsSyncing(false);
         }
     };
 
@@ -157,7 +203,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                 setToastMessage({ message: "Conteúdo criado!", type: 'success' });
             }
             setEditingContent(null);
-            loadContent();
+            loadContentAndSync(); // Reload list
         } catch (error) {
             console.error("Error saving content:", error);
             setToastMessage({ message: "Erro ao salvar conteúdo.", type: 'error' });
@@ -167,57 +213,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     };
 
     const handleDeleteContent = async (id: string) => {
-        if (window.confirm("Tem certeza que deseja excluir este item?")) {
+        if (window.confirm("Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita.")) {
             try {
                 await deleteDoc(doc(db, "library", id));
                 setToastMessage({ message: "Item excluído.", type: 'success' });
-                loadContent();
+                // Optimistic update
+                setContentItems(prev => prev.filter(i => i.id !== id));
             } catch (error) {
                 setToastMessage({ message: "Erro ao excluir.", type: 'error' });
             }
-        }
-    };
-
-    const importLocalQuotes = async () => {
-        if (!window.confirm(`Isso irá verificar e adicionar novas citações do arquivo local ao banco de dados. Continuar?`)) return;
-        
-        setIsLoading(true);
-        try {
-            // 1. Get existing quotes to prevent duplicates
-            const existingSnapshot = await getDocs(collection(db, "library"));
-            const existingTexts = new Set();
-            existingSnapshot.forEach(doc => {
-                const data = doc.data();
-                if (data.text) existingTexts.add(data.text);
-            });
-
-            // 2. Filter local quotes that aren't in Firestore yet
-            const newQuotes = localQuotesDb.filter(q => !existingTexts.has(q.text));
-
-            if (newQuotes.length === 0) {
-                setToastMessage({ message: "Todas as citações locais já foram importadas.", type: 'success' });
-                return;
-            }
-
-            // 3. Add them
-            const batchPromises = newQuotes.map(quote => {
-                return addDoc(collection(db, "library"), {
-                    text: quote.text,
-                    author: quote.author || "Desconhecida",
-                    category: quote.category || "Inspiração",
-                    type: 'quote',
-                    imageUrl: ''
-                });
-            });
-
-            await Promise.all(batchPromises);
-            setToastMessage({ message: `${newQuotes.length} novas citações importadas com sucesso!`, type: 'success' });
-            loadContent();
-        } catch (error) {
-            console.error(error);
-            setToastMessage({ message: "Erro na importação.", type: 'error' });
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -415,8 +419,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                 {/* CONTENT TAB */}
                 {activeTab === 'content' && (
                     <div className="space-y-6 animate-slide-in-up pb-20">
+                        {/* Summary Bar */}
+                        <div className="bg-[#111] border border-white/5 p-4 rounded-xl flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                                    <QuoteIcon className="text-lg" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500 uppercase font-bold">Total no App</p>
+                                    <p className="text-lg font-bold text-white">{contentItems.length} Citações</p>
+                                </div>
+                            </div>
+                            
+                            <button 
+                                onClick={handleImportLocalQuotes}
+                                disabled={isSyncing}
+                                className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-gray-300 border border-white/10 transition-colors disabled:opacity-50"
+                                title="Importa as citações do arquivo local para o banco de dados para poder editar."
+                            >
+                                {isSyncing ? <CachedIcon className="animate-spin text-sm" /> : <DownloadIcon className="text-sm" />}
+                                {isSyncing ? 'Importando...' : 'Importar Banco Local'}
+                            </button>
+                        </div>
+
                         {/* Filters & Actions */}
-                        <div className="flex flex-col md:flex-row gap-4 justify-between">
+                        <div className="flex flex-col md:flex-row gap-4 justify-between sticky top-0 z-20 bg-[#050505] py-2">
                             <div className="flex gap-2 w-full md:w-auto">
                                 <input 
                                     type="text" 
@@ -456,68 +483,56 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                             </div>
                         </div>
 
-                        {/* Import Helper */}
-                        {contentItems.length === 0 && !isLoading ? (
-                            <div className="bg-amber-900/20 border border-amber-500/30 p-6 rounded-2xl text-center">
-                                <p className="text-amber-200 mb-4">A biblioteca de conteúdo online está vazia.</p>
-                                <button 
-                                    onClick={importLocalQuotes}
-                                    className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded-full text-sm font-bold transition-colors"
-                                >
-                                    Importar Citações Iniciais do App
-                                </button>
-                            </div>
-                        ) : (
-                             // Also show import button if library has items but user might want to sync new local additions
-                             <div className="flex justify-end">
-                                 <button 
-                                    onClick={importLocalQuotes}
-                                    className="text-xs text-gray-500 hover:text-white underline"
-                                >
-                                    Sincronizar novas citações locais
-                                </button>
-                             </div>
-                        )}
-
                         {isLoading && <div className="text-center py-10 text-gray-500">Carregando biblioteca...</div>}
 
                         {/* Content List */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {filteredContent.map((item) => (
-                                <div key={item.id} className="bg-[#111] border border-white/5 rounded-2xl p-5 flex flex-col justify-between hover:border-white/20 transition-all group relative overflow-hidden">
-                                    {item.type === 'daily' && (
-                                        <div className="absolute top-0 right-0 bg-amber-500/20 text-amber-400 text-[9px] font-bold px-2 py-1 rounded-bl-lg border-b border-l border-amber-500/20 uppercase tracking-wider">
-                                            Motivação do Dia
-                                        </div>
-                                    )}
-                                    
-                                    <div className="mb-4">
-                                        <p className="text-white font-serif italic text-lg leading-snug mb-3">"{item.text}"</p>
-                                        <div className="flex justify-between items-end">
-                                            <p className="text-sm text-gray-400 font-bold">— {item.author}</p>
-                                            <span className="text-[10px] bg-white/10 text-gray-300 px-2 py-1 rounded-md uppercase tracking-wide">
-                                                {item.category}
-                                            </span>
-                                        </div>
-                                    </div>
+                        {!isLoading && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {filteredContent.length > 0 ? (
+                                    filteredContent.map((item) => (
+                                        <div key={item.id} className="bg-[#111] border border-white/5 rounded-2xl p-5 flex flex-col justify-between hover:border-white/20 transition-all group relative overflow-hidden">
+                                            {item.type === 'daily' && (
+                                                <div className="absolute top-0 right-0 bg-amber-500/20 text-amber-400 text-[9px] font-bold px-2 py-1 rounded-bl-lg border-b border-l border-amber-500/20 uppercase tracking-wider">
+                                                    Motivação do Dia
+                                                </div>
+                                            )}
+                                            
+                                            <div className="mb-4">
+                                                <p className="text-white font-serif italic text-lg leading-snug mb-3">"{item.text}"</p>
+                                                <div className="flex flex-wrap justify-between items-end gap-2">
+                                                    <p className="text-sm text-gray-400 font-bold whitespace-nowrap">— {item.author}</p>
+                                                    <span className="text-[10px] bg-white/10 text-gray-300 px-2 py-1 rounded-md uppercase tracking-wide border border-white/5 truncate max-w-[120px]">
+                                                        {item.category}
+                                                    </span>
+                                                </div>
+                                            </div>
 
-                                    <div className="flex justify-end gap-2 pt-4 border-t border-white/5 opacity-50 group-hover:opacity-100 transition-opacity">
-                                        <button 
-                                            onClick={() => setEditingContent(item)}
-                                            className="w-8 h-8 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/30 text-indigo-400 flex items-center justify-center transition-colors"
-                                        >
-                                            <EditIcon />
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDeleteContent(item.id!)}
-                                            className="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/30 text-red-400 flex items-center justify-center transition-colors"
-                                        >
-                                            <TrashIcon />
-                                        </button>
+                                            <div className="flex justify-end gap-2 pt-4 border-t border-white/5 opacity-100 md:opacity-50 md:group-hover:opacity-100 transition-opacity">
+                                                <button 
+                                                    onClick={() => setEditingContent(item)}
+                                                    className="w-8 h-8 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/30 text-indigo-400 flex items-center justify-center transition-colors"
+                                                    title="Editar"
+                                                >
+                                                    <EditIcon />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteContent(item.id!)}
+                                                    className="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/30 text-red-400 flex items-center justify-center transition-colors"
+                                                    title="Apagar"
+                                                >
+                                                    <TrashIcon />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="col-span-full text-center py-12 text-gray-500 bg-[#111] rounded-2xl border border-white/5">
+                                        <p>Nenhum conteúdo encontrado com esses filtros.</p>
+                                        <button onClick={() => { setSearchTerm(''); setContentFilterType('all'); setContentFilterCategory('all'); }} className="mt-2 text-indigo-400 text-sm font-bold">Limpar Filtros</button>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 
