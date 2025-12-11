@@ -46,6 +46,23 @@ const triggerHapticFeedback = (pattern: number | number[] = 30) => {
     }
 };
 
+// Route Constants
+const ROUTES = {
+    HOME: '/home',
+    PROFILE: '/profile',
+    DAILY_MOTIVATION: '/daily-motivation',
+    GAMIFICATION: '/gamification',
+    PREMIUM: '/premium',
+    FILTER: '/filter',
+    LANDING: '/ladingpage',
+    LOGIN: '/login',
+    SIGNUP: '/cadastro',
+    EXPLORE: '/explore',
+    SHARE: '/share',
+    ADMIN: '/admin',
+    MOOD_CHECKIN: '/mood-checkin'
+};
+
 const AppContent = () => {
     const { userData, updateUserData, loading: isUserDataLoading, completeQuest, initializeUser } = useUserData();
     const { login, signup, loginWithGoogle, resetPassword, logout, isAuthenticated, isLoading: isAuthLoading, authError } = useAuth();
@@ -99,52 +116,201 @@ const AppContent = () => {
     const [levelUpData, setLevelUpData] = useState<number | null>(null);
     const [isLevelUpClosing, setIsLevelUpClosing] = useState(false);
 
-    // Initial Route Handling and History Management
+    // --- ROUTING HELPER FUNCTIONS ---
+
+    const safePushRoute = useCallback((route: string) => {
+        if (window.location.href.includes('blob:')) return;
+        try {
+            window.history.pushState({}, '', route);
+        } catch (e) {
+            // Silently ignore
+        }
+    }, []);
+
+    const safeGoBack = useCallback(() => {
+        if (window.location.href.includes('blob:')) {
+            // In preview mode, we can't rely on history.back() working as expected or it might exit the app frame
+            // Return false to indicate the caller should handle closing manually
+            return false;
+        }
+        try {
+            window.history.back();
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }, []);
+
+    // --- NAVIGATION HANDLERS (Open Modals) ---
+
+    const handleOpenProfile = () => {
+        safePushRoute(ROUTES.PROFILE);
+        setShowProfile(true);
+    };
+
+    const handleOpenDailyMotivation = () => {
+        safePushRoute(ROUTES.DAILY_MOTIVATION);
+        setShowDailyMotivation(true);
+    };
+
+    const handleOpenGamification = () => {
+        safePushRoute(ROUTES.GAMIFICATION);
+        setShowGamification(true);
+    };
+
+    const handleOpenFilter = () => {
+        safePushRoute(ROUTES.FILTER);
+        setShowFilterModal(true);
+    };
+
+    const handleTriggerPremium = () => {
+        safePushRoute(ROUTES.PREMIUM);
+        setShowPremiumCheckout(true);
+    };
+
+    const handleOpenAdmin = () => {
+        safePushRoute(ROUTES.ADMIN);
+        setShowAdmin(true);
+    };
+
+    // --- CLOSE HANDLERS (Triggered by UI Buttons) ---
+    // Note: These mostly call safeGoBack(). The actual state change happens in the popstate listener
+    // to ensure sync with browser back button. If safeGoBack returns false (preview mode), we close manually.
+
+    const handleHideProfile = useCallback(() => {
+        if (!safeGoBack()) {
+            setIsProfileClosing(true);
+            setTimeout(() => { setShowProfile(false); setIsProfileClosing(false); }, 500);
+        }
+    }, [safeGoBack]);
+
+    const handleHideDailyMotivation = useCallback(() => {
+        if (!safeGoBack()) {
+            setIsDailyMotivationClosing(true);
+            setTimeout(() => { setShowDailyMotivation(false); setIsDailyMotivationClosing(false); }, 500);
+        }
+    }, [safeGoBack]);
+
+    const handleHideGamification = useCallback(() => {
+        if (!safeGoBack()) {
+            setIsGamificationClosing(true);
+            setTimeout(() => { setShowGamification(false); setIsGamificationClosing(false); }, 500);
+        }
+    }, [safeGoBack]);
+
+    const handleHideFilter = useCallback(() => {
+        if (!safeGoBack()) {
+            setIsFilterClosing(true);
+            setTimeout(() => { setShowFilterModal(false); setIsFilterClosing(false); }, 500);
+        }
+    }, [safeGoBack]);
+
+    const handleHidePremiumCheckout = useCallback(() => {
+        if (!safeGoBack()) {
+            setIsPremiumCheckoutClosing(true);
+            setTimeout(() => { setShowPremiumCheckout(false); setIsPremiumCheckoutClosing(false); }, 500);
+        }
+    }, [safeGoBack]);
+
+    const handleHideAdmin = useCallback(() => {
+         if (!safeGoBack()) {
+            setShowAdmin(false);
+         }
+    }, [safeGoBack]);
+
+    // Initial Route Handling and Popstate Listener
     useEffect(() => {
         const handleRoute = () => {
             const path = window.location.pathname;
-            if (path === '/login') {
+            
+            // Login Logic
+            if (path === ROUTES.LOGIN) {
                 setLoginInitialTab('login');
                 setShowLogin(true);
-            } else if (path === '/cadastro') {
+            } else if (path === ROUTES.SIGNUP) {
                 setLoginInitialTab('signup');
                 setShowLogin(true);
-            } else if (path === '/ladingpage') {
+            } else if (path === ROUTES.LANDING) {
                 setShowLogin(false);
-            } else if (path === '/home') {
-                setShowLogin(false);
+            } 
+            
+            // Modal Logic - Close modals if not on their route
+            // PROFILE
+            if (path === ROUTES.PROFILE) {
+                if (!showProfile) setShowProfile(true);
+            } else if (showProfile) {
+                setIsProfileClosing(true);
+                setTimeout(() => { setShowProfile(false); setIsProfileClosing(false); }, 500);
+            }
+
+            // DAILY MOTIVATION
+            if (path === ROUTES.DAILY_MOTIVATION) {
+                if (!showDailyMotivation) setShowDailyMotivation(true);
+            } else if (showDailyMotivation) {
+                setIsDailyMotivationClosing(true);
+                setTimeout(() => { setShowDailyMotivation(false); setIsDailyMotivationClosing(false); }, 500);
+            }
+
+            // GAMIFICATION
+            if (path === ROUTES.GAMIFICATION) {
+                if (!showGamification) setShowGamification(true);
+            } else if (showGamification) {
+                setIsGamificationClosing(true);
+                setTimeout(() => { setShowGamification(false); setIsGamificationClosing(false); }, 500);
+            }
+
+             // FILTER
+             if (path === ROUTES.FILTER) {
+                if (!showFilterModal) setShowFilterModal(true);
+            } else if (showFilterModal) {
+                setIsFilterClosing(true);
+                setTimeout(() => { setShowFilterModal(false); setIsFilterClosing(false); }, 500);
+            }
+
+            // PREMIUM
+            if (path === ROUTES.PREMIUM) {
+                if (!showPremiumCheckout) setShowPremiumCheckout(true);
+            } else if (showPremiumCheckout) {
+                setIsPremiumCheckoutClosing(true);
+                setTimeout(() => { setShowPremiumCheckout(false); setIsPremiumCheckoutClosing(false); }, 500);
+            }
+
+            // ADMIN
+            if (path === ROUTES.ADMIN) {
+                if (!showAdmin) setShowAdmin(true);
+            } else if (showAdmin) {
+                setShowAdmin(false);
+            }
+
+            // MOOD CHECKIN
+            if (path === ROUTES.MOOD_CHECKIN) {
+                if (!needsMoodCheckin) setNeedsMoodCheckin(true);
             }
         };
 
-        handleRoute();
+        // Initial check
+        // We only check modal routes if user is authenticated to avoid popping up stuff on landing
+        if (isAuthenticated && userData) {
+             handleRoute();
+        } else if (!isAuthenticated) {
+            // Handle Login/Signup/Landing routes
+            handleRoute();
+        }
+
         window.addEventListener('popstate', handleRoute);
         return () => window.removeEventListener('popstate', handleRoute);
-    }, []);
-
-    // Sync URL for Home/Landing based on auth status
-    useEffect(() => {
-        // Prevent SecurityError in sandboxed environments (blob URLs)
-        if (window.location.href.includes('blob:')) return;
-
-        if (isAuthenticated && !showLogin && userData?.onboardingComplete) {
-            if (window.location.pathname !== '/home') {
-                try {
-                    window.history.replaceState({}, '', '/home');
-                } catch (e) {
-                    // Silently ignore navigation errors
-                }
-            }
-        } else if (!isAuthenticated && !showLogin) {
-            // Default to /ladingpage if not deep linking to login/signup
-             if (window.location.pathname === '/' || window.location.pathname === '') {
-                 try {
-                     window.history.replaceState({}, '', '/ladingpage');
-                 } catch (e) {
-                     // Silently ignore navigation errors
-                 }
-             }
-        }
-    }, [isAuthenticated, showLogin, userData?.onboardingComplete]);
+    }, [
+        isAuthenticated, 
+        userData, 
+        showProfile, 
+        showDailyMotivation, 
+        showGamification, 
+        showFilterModal, 
+        showPremiumCheckout,
+        showLogin,
+        showAdmin,
+        needsMoodCheckin
+    ]);
 
     // Derived State
     const isOnboarded = !!userData?.onboardingComplete;
@@ -179,34 +345,47 @@ const AppContent = () => {
         }
     }, [authError]);
 
-    // Handle Post-Auth Data Initialization
+    // Handle Post-Auth Data Initialization (Specific for Signup flow that needs initialization)
     useEffect(() => {
-        // If we just signed up and are authenticated, we need to initialize user data in Firestore
-        // Note: This logic is for email/password signup. Google logic is handled separately below.
         if (authAction === 'signup' && isAuthenticated && tempSignupData && !isUserDataLoading) {
-            
-            // Initialize Firestore Document
             initializeUser({
                 name: tempSignupData.name,
-                onboardingComplete: false, // Start false so we see the OnboardingFlow questions
-                cpf: tempSignupData.cpf, // Save CPF
-                // In real app, store phone/CPF secure hash or in a separate secure collection if needed
-                // For this demo we just initialize the basic profile
+                onboardingComplete: false,
+                cpf: tempSignupData.cpf,
             }).then(() => {
                 setToastMessage({ message: `Conta criada!`, type: 'success' });
                 setAuthAction(null);
                 setTempSignupData(null);
                 setShowLogin(false);
             });
-
-        } else if (authAction === 'login' && isAuthenticated && !isUserDataLoading && !pendingGoogleUser) {
-            // Login successful
-            setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
-            setAuthAction(null);
-            setShowLogin(false);
         }
-    }, [authAction, isAuthenticated, isUserDataLoading, tempSignupData, initializeUser, userData, updateUserData, pendingGoogleUser]);
+    }, [authAction, isAuthenticated, isUserDataLoading, tempSignupData, initializeUser]);
 
+    // CENTRALIZED AUTH STATE SYNCHRONIZATION
+    // This effect ensures that if the user is authenticated and data is ready,
+    // they are NOT stuck on the login screen or landing page route.
+    useEffect(() => {
+        const isFullyAuthorized = isAuthenticated && userData && !isUserDataLoading && !pendingGoogleUser;
+
+        if (isFullyAuthorized) {
+            // 1. Force close login modal if open
+            if (showLogin) {
+                setShowLogin(false);
+                
+                // Show welcome message if coming from login action
+                if (authAction === 'login') {
+                    setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
+                    setAuthAction(null);
+                }
+            }
+
+            // 2. Fix Route if stuck on guest pages
+            const path = window.location.pathname;
+            if (path === ROUTES.LOGIN || path === ROUTES.SIGNUP || path === ROUTES.LANDING) {
+                safePushRoute(ROUTES.HOME);
+            }
+        }
+    }, [isAuthenticated, userData, isUserDataLoading, pendingGoogleUser, showLogin, authAction, safePushRoute]);
 
     // Fetch Daily Motivation (Restored)
     useEffect(() => {
@@ -367,51 +546,11 @@ const AppContent = () => {
         checkLevelUp(result);
     }, [completeQuest]);
 
-    const handleHideProfile = () => {
-        setIsProfileClosing(true);
-        setTimeout(() => {
-            setShowProfile(false);
-            setIsProfileClosing(false);
-        }, 500);
-    };
-
-    const handleHideGamification = () => {
-        setIsGamificationClosing(true);
-        setTimeout(() => {
-            setShowGamification(false);
-            setIsGamificationClosing(false);
-        }, 500);
-    };
-
     const handleCloseLevelUp = () => {
         setIsLevelUpClosing(true);
         setTimeout(() => {
             setLevelUpData(null);
             setIsLevelUpClosing(false);
-        }, 500);
-    };
-
-    const handleHideFilter = () => {
-        setIsFilterClosing(true);
-        setTimeout(() => {
-            setShowFilterModal(false);
-            setIsFilterClosing(false);
-        }, 500);
-    };
-    
-    const handleHideDailyMotivation = () => {
-        setIsDailyMotivationClosing(true);
-        setTimeout(() => {
-            setShowDailyMotivation(false);
-            setIsDailyMotivationClosing(false);
-        }, 500);
-    };
-
-    const handleHidePremiumCheckout = () => {
-        setIsPremiumCheckoutClosing(true);
-        setTimeout(() => {
-            setShowPremiumCheckout(false);
-            setIsPremiumCheckoutClosing(false);
         }, 500);
     };
 
@@ -425,6 +564,7 @@ const AppContent = () => {
             subscriptionExpiry: now.toISOString()
         });
         
+        // Navigate back from checkout
         handleHidePremiumCheckout();
         setToastMessage({ message: 'Bem-vindo(a) ao Premium! Obrigado pelo seu apoio.', type: 'success' });
     };
@@ -501,10 +641,6 @@ const AppContent = () => {
         }, 500);
     };
     
-    const handleTriggerPremium = () => {
-        setShowPremiumCheckout(true);
-    };
-
     // Login Handling - Connecting to Auth Context
     const handleLoginSubmit = async (data: LoginFormData) => {
         setAuthAction('login');
@@ -536,7 +672,6 @@ const AppContent = () => {
 
             if (!docSnap.exists()) {
                 // New user via Google - INTERCEPT HERE
-                // Set pending state to show CPF screen
                 setPendingGoogleUser(user);
             } else {
                  setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
@@ -553,7 +688,7 @@ const AppContent = () => {
         await initializeUser({
             name: pendingGoogleUser.displayName || 'Usuária',
             email: pendingGoogleUser.email || undefined,
-            onboardingComplete: false, // Start false to force questionnaire
+            onboardingComplete: false,
             cpf: cpf
         }, pendingGoogleUser.uid);
 
@@ -564,7 +699,7 @@ const AppContent = () => {
 
     const handleCancelGoogleSignup = () => {
         setPendingGoogleUser(null);
-        logout(); // Force logout as they are authenticated in firebase but not in our app logic
+        logout(); 
         setToastMessage({ message: `Cadastro cancelado.`, type: 'error' });
     };
 
@@ -573,29 +708,24 @@ const AppContent = () => {
             await resetPassword(email);
             setToastMessage({ message: `E-mail de recuperação enviado para ${email}`, type: 'success' });
         } catch (error) {
-            // Error handling done in context, toast message updated via useEffect on authError
+            // Error handling done in context
         }
     };
 
     const handleLogout = useCallback(() => {
-        // Immediate redirection order to prevent onboarding flash
-        setShowLogin(true);
+        // Clear UI states
         setShowProfile(false);
         setIsProfileClosing(false);
         setShowAdmin(false);
         setPendingGoogleUser(null);
+        setAuthAction(null); // Clear auth action to avoid zombie states
         
-        // Prevent SecurityError in sandboxed environments (blob URLs)
-        if (!window.location.href.includes('blob:')) {
-            try {
-                window.history.pushState({}, '', '/ladingpage');
-            } catch (e) {
-                // Silently ignore navigation errors
-            }
-        }
+        // Ensure Login modal is CLOSED so we see the Landing Page
+        setShowLogin(false); 
         
+        safePushRoute(ROUTES.LANDING);
         logout();
-    }, [logout]);
+    }, [logout, safePushRoute]);
 
 
     if (isSharePage) return <SharePage />;
@@ -608,9 +738,12 @@ const AppContent = () => {
              const now = new Date().getTime();
              if (!lastCheckin || (now - parseInt(lastCheckin, 10)) > twentyFourHours) {
                  setNeedsMoodCheckin(true);
+                 if (window.location.pathname !== ROUTES.MOOD_CHECKIN) {
+                     safePushRoute(ROUTES.MOOD_CHECKIN);
+                 }
              }
         }
-    }, [isOnboarded]);
+    }, [isOnboarded, safePushRoute]);
     
     // Loading State
     if (isUserDataLoading || isAuthLoading) {
@@ -621,14 +754,18 @@ const AppContent = () => {
         updateUserData({ feeling });
         localStorage.setItem('inspiraMoodCheckin', new Date().getTime().toString());
         setNeedsMoodCheckin(false);
+        // Navigate back to home or previous state logic
+        if (!safeGoBack()) {
+             // Fallback if no history
+             window.history.pushState({}, '', ROUTES.HOME);
+        }
     };
 
     // Routing Logic
     if (showAdmin) {
-        return <AdminPanel onClose={() => setShowAdmin(false)} setToastMessage={setToastMessage} />;
+        return <AdminPanel onClose={handleHideAdmin} setToastMessage={setToastMessage} />;
     }
 
-    // Intercept with Google CPF Screen
     if (pendingGoogleUser) {
         return (
             <GoogleCpfScreen 
@@ -648,16 +785,8 @@ const AppContent = () => {
                 onResetPassword={handleResetPassword}
                 onBack={() => {
                     setShowLogin(false);
-                    
-                    // Prevent SecurityError in sandboxed environments (blob URLs)
-                    if (!window.location.href.includes('blob:') && !isAuthenticated) {
-                        // Push state to go back to landing page history
-                         try {
-                            window.history.pushState({}, '', '/ladingpage');
-                        } catch (e) {
-                            // Silently ignore navigation errors
-                        }
-                    }
+                    // Return to landing page route
+                    safePushRoute(ROUTES.LANDING);
                 }}
             />
         );
@@ -670,15 +799,7 @@ const AppContent = () => {
                 onLoginClick={() => {
                     setLoginInitialTab('login');
                     setShowLogin(true);
-                    
-                    // Prevent SecurityError in sandboxed environments (blob URLs)
-                    if (!window.location.href.includes('blob:')) {
-                        try {
-                            window.history.pushState({}, '', '/login');
-                        } catch (e) {
-                            // Silently ignore navigation errors
-                        }
-                    }
+                    safePushRoute(ROUTES.LOGIN);
                 }} 
                 onShowTerms={() => setShowTerms(true)}
                 onShowPrivacy={() => setShowPrivacy(true)}
@@ -724,7 +845,10 @@ const AppContent = () => {
     if (!hasActiveAccess && !showPremiumCheckout) {
         return (
             <SubscriptionExpiredScreen 
-                onRenew={() => setShowPremiumCheckout(true)} 
+                onRenew={() => {
+                    setShowPremiumCheckout(true);
+                    safePushRoute(ROUTES.PREMIUM);
+                }} 
                 onLogout={handleLogout} 
             />
         );
@@ -771,7 +895,7 @@ const AppContent = () => {
                             <div className="h-10 w-10 bg-white/50 rounded-full animate-pulse shadow-md" aria-hidden="true"></div>
                         ) : (
                             <button 
-                                onClick={() => setShowDailyMotivation(true)}
+                                onClick={handleOpenDailyMotivation}
                                 className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center transform active:scale-95"
                                 aria-label="Ver Motivação do Dia"
                             >
@@ -780,7 +904,7 @@ const AppContent = () => {
                         )}
                          {/* Gamification Entry Point */}
                          <button 
-                             onClick={() => setShowGamification(true)}
+                             onClick={handleOpenGamification}
                              className="h-10 px-4 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center gap-3 transform active:scale-95"
                              aria-label="Ver Jornada"
                          >
@@ -798,10 +922,10 @@ const AppContent = () => {
                     </div>
                     
                     <div role="navigation" aria-label="Navegação Principal" className="pointer-events-auto flex items-center space-x-2">
-                        <button aria-label="Filtrar tópicos" onClick={() => setShowFilterModal(true)} className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center transform active:scale-95">
+                        <button aria-label="Filtrar tópicos" onClick={handleOpenFilter} className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center transform active:scale-95">
                             <FilterIcon className="text-white text-[24px]"/>
                         </button>
-                        <button aria-label="Ver perfil" onClick={() => setShowProfile(true)} className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center transform active:scale-95">
+                        <button aria-label="Ver perfil" onClick={handleOpenProfile} className="w-10 h-10 rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors ring-1 ring-white/20 flex items-center justify-center transform active:scale-95">
                             <UserCircleIcon className="text-white text-[24px]"/>
                         </button>
                     </div>
@@ -816,8 +940,10 @@ const AppContent = () => {
                         isLoading={isDailyMotivationLoading}
                         onBack={handleHideDailyMotivation}
                         onNavigateToProfile={() => {
-                            handleHideDailyMotivation();
-                            setTimeout(() => setShowProfile(true), 500);
+                            if (!safeGoBack()) {
+                                handleHideDailyMotivation();
+                            }
+                            setTimeout(() => handleOpenProfile(), 100);
                         }}
                         onLike={handleLikeDailyMotivation}
                         onShare={handleShare}
@@ -863,12 +989,17 @@ const AppContent = () => {
                         onLike={handleLike} 
                         setToastMessage={setToastMessage} 
                         isClosing={isProfileClosing} 
-                        onGoToPremium={() => { handleHideProfile(); setTimeout(() => setShowPremiumCheckout(true), 100); }} 
+                        onGoToPremium={() => { 
+                             if (!safeGoBack()) {
+                                 handleHideProfile();
+                             }
+                             setTimeout(() => handleTriggerPremium(), 100);
+                        }} 
                         onLogout={handleLogout}
                         onShowTerms={() => setShowTerms(true)}
                         onShowPrivacy={() => setShowPrivacy(true)}
                         isAdmin={isAdmin}
-                        onOpenAdmin={() => { handleHideProfile(); setShowAdmin(true); }}
+                        onOpenAdmin={handleOpenAdmin}
                     />
                 )}
 
