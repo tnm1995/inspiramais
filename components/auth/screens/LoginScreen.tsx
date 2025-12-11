@@ -120,9 +120,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
         setErrorMessage(null);
         setIsSubmitting(true);
 
+        const trimmedEmail = formData.email.trim();
+        // Critical Fix: Trim password to match the logic used in AdminPanel creation
+        const trimmedPassword = formData.password.trim();
+
         try {
             if (activeTab === 'login') {
-                await onLogin({ email: formData.email, password: formData.password, remember: rememberMe });
+                await onLogin({ email: trimmedEmail, password: trimmedPassword, remember: rememberMe });
                 setIsSuccess(true);
             } else {
                 const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
@@ -158,9 +162,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                     }
 
                     await onSignup({
-                        name: formData.name,
-                        email: formData.email,
-                        password: formData.password,
+                        name: formData.name.trim(),
+                        email: trimmedEmail,
+                        password: trimmedPassword, // Send trimmed password
                         phone: formData.phone,
                         cpf: cpfClean,
                         remember: rememberMe
@@ -182,7 +186,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
     const handleResetSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (onResetPassword && resetEmail) {
-            onResetPassword(resetEmail);
+            onResetPassword(resetEmail.trim());
             setIsResetSent(true);
         }
     };

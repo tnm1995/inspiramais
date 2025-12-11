@@ -175,6 +175,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         e.preventDefault();
         
         if (!newUserEmail || !newUserName || !newUserPassword) return;
+        
+        const email = newUserEmail.trim();
+        const password = newUserPassword.trim();
+        const name = newUserName.trim();
+
+        if (password.length < 6) {
+            setToastMessage({ message: "A senha deve ter pelo menos 6 caracteres (sem contar espaços).", type: 'error' });
+            return;
+        }
+
         setIsCreatingUser(true);
 
         // Create a secondary Firebase App instance to avoid logging out the current admin
@@ -190,7 +200,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             // and does not overwrite the main app's session in localStorage.
             await secondaryAuth.setPersistence(firebase.auth.Auth.Persistence.NONE);
 
-            const userCredential = await secondaryAuth.createUserWithEmailAndPassword(newUserEmail, newUserPassword);
+            const userCredential = await secondaryAuth.createUserWithEmailAndPassword(email, password);
             const user = userCredential.user;
 
             if (user) {
@@ -203,9 +213,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                     isPremium: newUserPremium,
                     isAdmin: false,
                     subscriptionExpiry: newUserPremium ? expiryDate.toISOString() : undefined,
-                    name: newUserName,
+                    name: name,
                     // @ts-ignore
-                    email: newUserEmail, 
+                    email: email, 
                     stats: {
                         xp: 0,
                         level: 1,
@@ -222,8 +232,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                 };
 
                 // Use the secondary app's firestore to write the user data.
-                // This ensures the write happens as the NEW user (who definitely has permission to write their own doc),
-                // without relying on Admin permissions in the main app or cloud functions.
                 const secondaryDb = secondaryApp.firestore();
                 await secondaryDb.collection("users").doc(user.uid).set(newUser);
                 
@@ -245,7 +253,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             console.error("Error creating user:", error);
             let msg = error.message;
             if (error.code === 'auth/email-already-in-use') msg = "E-mail já está em uso.";
-            if (error.code === 'auth/weak-password') msg = "Senha muito fraca.";
+            if (error.code === 'auth/weak-password') msg = "Senha muito fraca (min 6 caracteres).";
             setToastMessage({ message: `Erro: ${msg}`, type: 'error' });
         } finally {
             // Clean up the secondary app to free resources
