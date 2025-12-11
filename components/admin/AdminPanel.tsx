@@ -6,6 +6,8 @@ import { db, auth, firebaseConfig } from '../../firebaseConfig';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 import { usePageTracking } from '../../hooks/usePageTracking';
 import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/firestore';
 
 interface AdminPanelProps {
     onClose: () => void;
@@ -61,7 +63,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
             }
         } catch (error: any) {
             console.error("Error loading config:", error);
-            setToastMessage({ message: "Falha ao carregar configurações. Verifique sua conexão.", type: 'error' });
+            setToastMessage({ message: "Falha ao carregar configurações.", type: 'error' });
         }
     };
 
@@ -179,12 +181,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         let secondaryApp: firebase.app.App | null = null;
 
         try {
-            // Unique name for the secondary app
+            // Unique name for the secondary app to prevent conflicts
             const appName = "secondaryApp-" + new Date().getTime();
             secondaryApp = firebase.initializeApp(firebaseConfig, appName);
             const secondaryAuth = secondaryApp.auth();
 
-            // IMPEDIR QUE A NOVA CONTA FAÇA LOGIN AUTOMÁTICO NA SESSÃO PRINCIPAL
+            // CRITICAL: Set persistence to NONE so this auth instance does not persist
+            // and does not overwrite the main app's session in localStorage.
             await secondaryAuth.setPersistence(firebase.auth.Auth.Persistence.NONE);
 
             const userCredential = await secondaryAuth.createUserWithEmailAndPassword(newUserEmail, newUserPassword);
@@ -218,10 +221,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                     topics: []
                 };
 
-                // Use the MAIN db instance to write the data
-                await setDoc(doc(db, "users", user.uid), newUser);
+                // Use the secondary app's firestore to write the user data.
+                // This ensures the write happens as the NEW user (who definitely has permission to write their own doc),
+                // without relying on Admin permissions in the main app or cloud functions.
+                const secondaryDb = secondaryApp.firestore();
+                await secondaryDb.collection("users").doc(user.uid).set(newUser);
                 
-                // Sign out the secondary user just in case
+                // Sign out the secondary user explicitly
                 await secondaryAuth.signOut();
                 
                 setToastMessage({ message: "Usuário criado com sucesso!", type: 'success' });
@@ -230,17 +236,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                 setNewUserPassword('');
                 setNewUserName('');
                 setNewUserPremium(false);
+                
+                // Refresh list using main app's db (which is still authenticated as Admin)
                 loadUsers();
             }
 
         } catch (error: any) {
-            console.error(error);
+            console.error("Error creating user:", error);
             let msg = error.message;
             if (error.code === 'auth/email-already-in-use') msg = "E-mail já está em uso.";
             if (error.code === 'auth/weak-password') msg = "Senha muito fraca.";
             setToastMessage({ message: `Erro: ${msg}`, type: 'error' });
         } finally {
-            // Clean up the secondary app
+            // Clean up the secondary app to free resources
             if (secondaryApp) {
                 await secondaryApp.delete();
             }
