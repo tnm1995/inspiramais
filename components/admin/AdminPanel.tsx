@@ -181,7 +181,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         const name = newUserName.trim();
 
         if (password.length < 6) {
-            setToastMessage({ message: "A senha deve ter pelo menos 6 caracteres (sem contar espaços).", type: 'error' });
+            setToastMessage({ message: "A senha deve ter pelo menos 6 caracteres (ignorando espaços nas pontas).", type: 'error' });
             return;
         }
 

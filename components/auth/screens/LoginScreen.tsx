@@ -121,7 +121,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
         setIsSubmitting(true);
 
         const trimmedEmail = formData.email.trim();
-        // Critical Fix: Trim password to match the logic used in AdminPanel creation
+        // Important: Trim password to match storage logic and prevent copy-paste errors
         const trimmedPassword = formData.password.trim();
 
         try {
@@ -164,7 +164,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                     await onSignup({
                         name: formData.name.trim(),
                         email: trimmedEmail,
-                        password: trimmedPassword, // Send trimmed password
+                        password: trimmedPassword, // Use trimmed password for signup too
                         phone: formData.phone,
                         cpf: cpfClean,
                         remember: rememberMe
