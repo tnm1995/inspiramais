@@ -46,6 +46,23 @@ const triggerHapticFeedback = (pattern: number | number[] = 30) => {
     }
 };
 
+// Route Constants
+const ROUTES = {
+    HOME: '/home',
+    PROFILE: '/profile',
+    DAILY_MOTIVATION: '/daily-motivation',
+    GAMIFICATION: '/gamification',
+    PREMIUM: '/premium',
+    FILTER: '/filter',
+    LANDING: '/ladingpage',
+    LOGIN: '/login',
+    SIGNUP: '/cadastro',
+    EXPLORE: '/explore',
+    SHARE: '/share',
+    ADMIN: '/admin',
+    MOOD_CHECKIN: '/mood-checkin'
+};
+
 const AppContent = () => {
     const { userData, updateUserData, loading: isUserDataLoading, completeQuest, initializeUser } = useUserData();
     const { login, signup, loginWithGoogle, resetPassword, logout, isAuthenticated, isLoading: isAuthLoading, authError } = useAuth();
@@ -215,38 +232,85 @@ const AppContent = () => {
                 setShowLogin(true);
             } else if (path === ROUTES.LANDING) {
                 setShowLogin(false);
+            } 
+            
+            // Modal Logic - Close modals if not on their route
+            // PROFILE
+            if (path === ROUTES.PROFILE) {
+                if (!showProfile) setShowProfile(true);
+            } else if (showProfile) {
+                setIsProfileClosing(true);
+                setTimeout(() => { setShowProfile(false); setIsProfileClosing(false); }, 500);
+            }
+
+            // DAILY MOTIVATION
+            if (path === ROUTES.DAILY_MOTIVATION) {
+                if (!showDailyMotivation) setShowDailyMotivation(true);
+            } else if (showDailyMotivation) {
+                setIsDailyMotivationClosing(true);
+                setTimeout(() => { setShowDailyMotivation(false); setIsDailyMotivationClosing(false); }, 500);
+            }
+
+            // GAMIFICATION
+            if (path === ROUTES.GAMIFICATION) {
+                if (!showGamification) setShowGamification(true);
+            } else if (showGamification) {
+                setIsGamificationClosing(true);
+                setTimeout(() => { setShowGamification(false); setIsGamificationClosing(false); }, 500);
+            }
+
+             // FILTER
+             if (path === ROUTES.FILTER) {
+                if (!showFilterModal) setShowFilterModal(true);
+            } else if (showFilterModal) {
+                setIsFilterClosing(true);
+                setTimeout(() => { setShowFilterModal(false); setIsFilterClosing(false); }, 500);
+            }
+
+            // PREMIUM
+            if (path === ROUTES.PREMIUM) {
+                if (!showPremiumCheckout) setShowPremiumCheckout(true);
+            } else if (showPremiumCheckout) {
+                setIsPremiumCheckoutClosing(true);
+                setTimeout(() => { setShowPremiumCheckout(false); setIsPremiumCheckoutClosing(false); }, 500);
+            }
+
+            // ADMIN
+            if (path === ROUTES.ADMIN) {
+                if (!showAdmin) setShowAdmin(true);
+            } else if (showAdmin) {
+                setShowAdmin(false);
+            }
+
+            // MOOD CHECKIN
+            if (path === ROUTES.MOOD_CHECKIN) {
+                if (!needsMoodCheckin) setNeedsMoodCheckin(true);
             }
         };
 
-        handleRoute();
+        // Initial check
+        // We only check modal routes if user is authenticated to avoid popping up stuff on landing
+        if (isAuthenticated && userData) {
+             handleRoute();
+        } else if (!isAuthenticated) {
+            // Handle Login/Signup/Landing routes
+            handleRoute();
+        }
+
         window.addEventListener('popstate', handleRoute);
         return () => window.removeEventListener('popstate', handleRoute);
-    }, []);
-
-    // Sync URL for Home/Landing based on auth status
-    useEffect(() => {
-        // Prevent SecurityError in sandboxed environments (blob URLs)
-        if (window.location.href.includes('blob:')) return;
-
-        if (isAuthenticated && !showLogin && userData?.onboardingComplete) {
-            if (window.location.pathname !== '/home') {
-                try {
-                    window.history.replaceState({}, '', '/home');
-                } catch (e) {
-                    // Silently ignore navigation errors
-                }
-            }
-        } else if (!isAuthenticated && !showLogin) {
-            // Default to /ladingpage if not deep linking to login/signup
-             if (window.location.pathname === '/' || window.location.pathname === '') {
-                 try {
-                     window.history.replaceState({}, '', '/ladingpage');
-                 } catch (e) {
-                     // Silently ignore navigation errors
-                 }
-             }
-        }
-    }, [isAuthenticated, showLogin, userData?.onboardingComplete]);
+    }, [
+        isAuthenticated, 
+        userData, 
+        showProfile, 
+        showDailyMotivation, 
+        showGamification, 
+        showFilterModal, 
+        showPremiumCheckout,
+        showLogin,
+        showAdmin,
+        needsMoodCheckin
+    ]);
 
     // Derived State
     const isOnboarded = !!userData?.onboardingComplete;
@@ -294,12 +358,32 @@ const AppContent = () => {
                 setTempSignupData(null);
                 setShowLogin(false);
             });
+        }
+    }, [authAction, isAuthenticated, isUserDataLoading, tempSignupData, initializeUser]);
 
-        } else if (authAction === 'login' && isAuthenticated && !isUserDataLoading && !pendingGoogleUser) {
-            // Login successful
-            setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
-            setAuthAction(null);
-            setShowLogin(false);
+    // CENTRALIZED AUTH STATE SYNCHRONIZATION
+    // This effect ensures that if the user is authenticated and data is ready,
+    // they are NOT stuck on the login screen or landing page route.
+    useEffect(() => {
+        const isFullyAuthorized = isAuthenticated && userData && !isUserDataLoading && !pendingGoogleUser;
+
+        if (isFullyAuthorized) {
+            // 1. Force close login modal if open
+            if (showLogin) {
+                setShowLogin(false);
+                
+                // Show welcome message if coming from login action
+                if (authAction === 'login') {
+                    setToastMessage({ message: `Bem-vinda de volta!`, type: 'success' });
+                    setAuthAction(null);
+                }
+            }
+
+            // 2. Fix Route if stuck on guest pages
+            const path = window.location.pathname;
+            if (path === ROUTES.LOGIN || path === ROUTES.SIGNUP || path === ROUTES.LANDING) {
+                safePushRoute(ROUTES.HOME);
+            }
         }
     }, [isAuthenticated, userData, isUserDataLoading, pendingGoogleUser, showLogin, authAction, safePushRoute]);
 
@@ -634,16 +718,12 @@ const AppContent = () => {
         setIsProfileClosing(false);
         setShowAdmin(false);
         setPendingGoogleUser(null);
+        setAuthAction(null); // Clear auth action to avoid zombie states
         
-        // Prevent SecurityError in sandboxed environments (blob URLs)
-        if (!window.location.href.includes('blob:')) {
-            try {
-                window.history.pushState({}, '', '/ladingpage');
-            } catch (e) {
-                // Silently ignore navigation errors
-            }
-        }
+        // Ensure Login modal is CLOSED so we see the Landing Page
+        setShowLogin(false); 
         
+        safePushRoute(ROUTES.LANDING);
         logout();
     }, [logout, safePushRoute]);
 
