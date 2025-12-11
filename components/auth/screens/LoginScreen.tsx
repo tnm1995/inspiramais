@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { EmailIcon, LockIcon, UserCircleIcon, PhoneIcon, SparkleIcon, ArrowRightIcon, ChevronLeftIcon, GoogleIcon, CreditCardIcon, CheckIcon, CloseIcon, WarningIcon, CogIcon } from '../../Icons';
 import { LoginFormData, SignupFormData } from '../../../types';
@@ -121,12 +120,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
         setIsSubmitting(true);
 
         const trimmedEmail = formData.email.trim();
-        // Important: Trim password to match storage logic and prevent copy-paste errors
-        const trimmedPassword = formData.password.trim();
+        // NOTA: Não usamos trim() na senha para permitir espaços intencionais e manter compatibilidade
+        const password = formData.password;
 
         try {
             if (activeTab === 'login') {
-                await onLogin({ email: trimmedEmail, password: trimmedPassword, remember: rememberMe });
+                await onLogin({ email: trimmedEmail, password: password, remember: rememberMe });
                 setIsSuccess(true);
             } else {
                 const isPasswordValid = Object.values(passwordCriteria).every(Boolean);
@@ -164,7 +163,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSignup, onG
                     await onSignup({
                         name: formData.name.trim(),
                         email: trimmedEmail,
-                        password: trimmedPassword, // Use trimmed password for signup too
+                        password: password, 
                         phone: formData.phone,
                         cpf: cpfClean,
                         remember: rememberMe

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon, PhoneIcon } from '../Icons';
 import { UserData, AppConfig } from '../../types';
@@ -177,11 +176,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         if (!newUserEmail || !newUserName || !newUserPassword) return;
         
         const email = newUserEmail.trim();
-        const password = newUserPassword.trim();
+        // NOTA: Sem trim() na senha
+        const password = newUserPassword;
         const name = newUserName.trim();
 
         if (password.length < 6) {
-            setToastMessage({ message: "A senha deve ter pelo menos 6 caracteres (ignorando espaços nas pontas).", type: 'error' });
+            setToastMessage({ message: "A senha deve ter pelo menos 6 caracteres.", type: 'error' });
             return;
         }
 
