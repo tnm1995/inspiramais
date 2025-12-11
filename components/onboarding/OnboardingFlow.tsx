@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUserData } from '../../context/UserDataContext';
 import { WelcomeScreen } from './screens/WelcomeScreen';
 import { TopicsScreen } from './screens/TopicsScreen';
@@ -40,6 +40,32 @@ export enum OnboardingStep {
     Topics,            // Actual topics selection
 }
 
+// Map steps to URL slugs
+const STEP_URLS: Record<number, string> = {
+    [OnboardingStep.Landing]: '/landingpage', // Fixed typo
+    [OnboardingStep.Welcome]: '/onboarding/welcome',
+    [OnboardingStep.Source]: '/onboarding/source',
+    [OnboardingStep.Age]: '/onboarding/age',
+    [OnboardingStep.Relationship]: '/onboarding/relationship',
+    [OnboardingStep.Children]: '/onboarding/children',
+    [OnboardingStep.Religious]: '/onboarding/religious',
+    [OnboardingStep.Beliefs]: '/onboarding/beliefs',
+    [OnboardingStep.Zodiac]: '/onboarding/zodiac',
+    [OnboardingStep.PersonalizeIntro3]: '/onboarding/intro',
+    [OnboardingStep.Feeling]: '/onboarding/feeling',
+    [OnboardingStep.FeelingReason]: '/onboarding/feeling-reason',
+    [OnboardingStep.Improvement]: '/onboarding/improvement',
+    [OnboardingStep.AppGoals]: '/onboarding/app-goals',
+    [OnboardingStep.Goals]: '/onboarding/goals',
+    [OnboardingStep.Topics]: '/onboarding/topics'
+};
+
+// Reverse map for initial load
+const URL_TO_STEP: Record<string, OnboardingStep> = Object.entries(STEP_URLS).reduce((acc, [step, url]) => {
+    acc[url] = Number(step);
+    return acc;
+}, {} as Record<string, OnboardingStep>);
+
 interface OnboardingFlowProps {
     onLoginClick: () => void;
     onShowTerms?: () => void;
@@ -56,24 +82,89 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, on
     // Track onboarding steps as pages with hierarchical URL format
     usePageTracking(`/onboarding/${OnboardingStep[step].toLowerCase()}`);
 
+    // Sync URL on Mount
+    useEffect(() => {
+        if (initialStep !== undefined) return; // If manually set, ignore URL
+
+        const path = window.location.pathname;
+        const mappedStep = URL_TO_STEP[path];
+        
+        if (mappedStep !== undefined && mappedStep !== OnboardingStep.Landing) {
+            setHistory([OnboardingStep.Landing, mappedStep]);
+        }
+    }, [initialStep]);
+
+    // Handle Browser Back Button
+    useEffect(() => {
+        const handlePopState = () => {
+             const path = window.location.pathname;
+             const mappedStep = URL_TO_STEP[path];
+
+             if (mappedStep !== undefined) {
+                 // We found a valid step for this URL. 
+                 // We should ideally reconstruct history, but for simple back navigation,
+                 // checking if it's the previous step in our local history is enough.
+                 setHistory(prev => {
+                     // If going back
+                     if (prev.length > 1 && prev[prev.length - 2] === mappedStep) {
+                         return prev.slice(0, -1);
+                     }
+                     // If strictly jumping (deep link or forward), reset or push
+                     // For safety, let's just set it as current, keeping Landing as base if needed
+                     return [OnboardingStep.Landing, mappedStep];
+                 });
+             } else if (path === '/landingpage' || path === '/') {
+                 setHistory([OnboardingStep.Landing]);
+             }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
+
+    const updateUrl = (newStep: OnboardingStep) => {
+        const url = STEP_URLS[newStep];
+        if (url && !window.location.href.includes('blob:')) {
+            try {
+                window.history.pushState({}, '', url);
+            } catch (e) {
+                // Ignore in restricted environments
+            }
+        }
+    };
+
     const next = () => {
-        setHistory(prev => [...prev, prev[prev.length - 1] + 1]);
+        const nextStep = step + 1;
+        setHistory(prev => [...prev, nextStep]);
+        updateUrl(nextStep);
     };
 
     const back = () => {
         if (history.length > 1) {
-            setHistory(prev => prev.slice(0, -1));
+            // Use browser history to go back if possible to keep sync
+            if (!window.location.href.includes('blob:')) {
+                window.history.back();
+            } else {
+                // Fallback for preview
+                setHistory(prev => prev.slice(0, -1));
+            }
         }
     };
 
     const goToStep = (targetStep: OnboardingStep) => {
         setHistory(prev => [...prev, targetStep]);
+        updateUrl(targetStep);
     }
     
     const finishOnboarding = () => {
         // Mark mood checkin as done for today so the main app doesn't ask immediately
         localStorage.setItem('inspiraMoodCheckin', new Date().getTime().toString());
         updateUserData({ onboardingComplete: true });
+        
+        // Reset URL to home without pushing, to avoid back-button to onboarding
+        if (!window.location.href.includes('blob:')) {
+            window.history.replaceState({}, '', '/home');
+        }
     };
 
     const handleReligiousChoice = (choice: string) => {
@@ -107,7 +198,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onLoginClick, on
             case OnboardingStep.AppGoals: return <AppGoalsScreen onNext={next} onBack={back} progress={progress} />;
             case OnboardingStep.Goals: return <GoalsScreen onNext={next} onBack={back} progress={progress} />;
             case OnboardingStep.Topics: return <TopicsScreen onNext={finishOnboarding} onBack={back} progress={progress} />;
-            default: return <div>Step not found</div>;
+            default: return <LandingPage onGetStarted={next} onLoginClick={onLoginClick} onShowTerms={onShowTerms} onShowPrivacy={onShowPrivacy} />;
         }
     };
 
