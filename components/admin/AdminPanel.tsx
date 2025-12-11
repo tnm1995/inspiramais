@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon, PhoneIcon } from '../Icons';
+import { CloseIcon, UserCircleIcon, CrownIcon, CogIcon, LogoutIcon, CreditCardIcon, PhoneIcon, EditIcon, LockIcon } from '../Icons';
 import { UserData, AppConfig } from '../../types';
-import { db, auth, firebaseConfig } from '../../firebaseConfig';
+import { db, auth } from '../../firebaseConfig';
 import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
 import { usePageTracking } from '../../hooks/usePageTracking';
-import firebase from 'firebase/compat/app';
-import 'firebase/compat/auth';
-import 'firebase/compat/firestore';
 
 interface AdminPanelProps {
     onClose: () => void;
@@ -24,8 +21,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     const [activeTab, setActiveTab] = useState<'users' | 'settings'>('users');
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [showCreateModal, setShowCreateModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    
+    // Edit User State
+    const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+    const [editName, setEditName] = useState('');
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
     
     // Config State
     const [appConfig, setAppConfig] = useState<AppConfig>({
@@ -37,13 +38,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         whatsappLink: ''
     });
     const [isSavingConfig, setIsSavingConfig] = useState(false);
-
-    // Create User Form State
-    const [newUserEmail, setNewUserEmail] = useState('');
-    const [newUserPassword, setNewUserPassword] = useState('');
-    const [newUserName, setNewUserName] = useState('');
-    const [newUserPremium, setNewUserPremium] = useState(false);
-    const [isCreatingUser, setIsCreatingUser] = useState(false);
 
     useEffect(() => {
         if (activeTab === 'users') {
@@ -150,7 +144,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     };
 
     const handleDelete = async (userId: string) => {
-        if (window.confirm(`Tem certeza? Isso apaga os dados do banco, mas a conta de autenticação permanece (limitação do SDK cliente).`)) {
+        if (window.confirm(`Tem certeza? Isso apaga os dados do banco para este usuário.`)) {
             try {
                 await deleteDoc(doc(db, "users", userId));
                 setToastMessage({ message: `Dados do usuário excluídos.`, type: 'success' });
@@ -170,97 +164,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
         }
     };
 
-    const handleCreateUser = async (e: React.FormEvent) => {
-        e.preventDefault();
-        
-        if (!newUserEmail || !newUserName || !newUserPassword) return;
-        
-        const email = newUserEmail.trim();
-        // NOTA: Sem trim() na senha
-        const password = newUserPassword;
-        const name = newUserName.trim();
+    // --- Edit User Logic ---
 
-        if (password.length < 6) {
-            setToastMessage({ message: "A senha deve ter pelo menos 6 caracteres.", type: 'error' });
+    const openEditModal = (user: AdminUser) => {
+        setEditingUser(user);
+        setEditName(user.data.name || '');
+    };
+
+    const handleSaveEdit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingUser) return;
+
+        setIsSavingEdit(true);
+        try {
+            await updateDoc(doc(db, "users", editingUser.id), {
+                name: editName
+            });
+            setToastMessage({ message: "Dados atualizados com sucesso.", type: 'success' });
+            setEditingUser(null);
+            loadUsers();
+        } catch (error) {
+            console.error("Error updating user:", error);
+            setToastMessage({ message: "Erro ao atualizar usuário.", type: 'error' });
+        } finally {
+            setIsSavingEdit(false);
+        }
+    };
+
+    const handleSendPasswordReset = async () => {
+        if (!editingUser || !editingUser.email || !editingUser.email.includes('@')) {
+            setToastMessage({ message: "Usuário não possui e-mail válido.", type: 'error' });
             return;
         }
-
-        setIsCreatingUser(true);
-
-        // Create a secondary Firebase App instance to avoid logging out the current admin
-        let secondaryApp: firebase.app.App | null = null;
+        
+        if (!window.confirm(`Enviar e-mail de redefinição de senha para ${editingUser.email}?`)) return;
 
         try {
-            // Unique name for the secondary app to prevent conflicts
-            const appName = "secondaryApp-" + new Date().getTime();
-            secondaryApp = firebase.initializeApp(firebaseConfig, appName);
-            const secondaryAuth = secondaryApp.auth();
-
-            // CRITICAL: Set persistence to NONE so this auth instance does not persist
-            // and does not overwrite the main app's session in localStorage.
-            await secondaryAuth.setPersistence(firebase.auth.Auth.Persistence.NONE);
-
-            const userCredential = await secondaryAuth.createUserWithEmailAndPassword(email, password);
-            const user = userCredential.user;
-
-            if (user) {
-                const today = new Date().toISOString().split('T')[0];
-                const expiryDate = new Date();
-                expiryDate.setMonth(expiryDate.getMonth() + 1);
-
-                const newUser: UserData = {
-                    onboardingComplete: true,
-                    isPremium: newUserPremium,
-                    isAdmin: false,
-                    subscriptionExpiry: newUserPremium ? expiryDate.toISOString() : undefined,
-                    name: name,
-                    // @ts-ignore
-                    email: email, 
-                    stats: {
-                        xp: 0,
-                        level: 1,
-                        currentStreak: 1,
-                        lastLoginDate: today,
-                        quests: [],
-                        totalQuotesRead: 0,
-                        totalShares: 0,
-                        totalLikes: 0
-                    },
-                    improvementAreas: [],
-                    appGoals: [],
-                    topics: []
-                };
-
-                // Use the secondary app's firestore to write the user data.
-                const secondaryDb = secondaryApp.firestore();
-                await secondaryDb.collection("users").doc(user.uid).set(newUser);
-                
-                // Sign out the secondary user explicitly
-                await secondaryAuth.signOut();
-                
-                setToastMessage({ message: "Usuário criado com sucesso!", type: 'success' });
-                setShowCreateModal(false);
-                setNewUserEmail('');
-                setNewUserPassword('');
-                setNewUserName('');
-                setNewUserPremium(false);
-                
-                // Refresh list using main app's db (which is still authenticated as Admin)
-                loadUsers();
-            }
-
-        } catch (error: any) {
-            console.error("Error creating user:", error);
-            let msg = error.message;
-            if (error.code === 'auth/email-already-in-use') msg = "E-mail já está em uso.";
-            if (error.code === 'auth/weak-password') msg = "Senha muito fraca (min 6 caracteres).";
-            setToastMessage({ message: `Erro: ${msg}`, type: 'error' });
-        } finally {
-            // Clean up the secondary app to free resources
-            if (secondaryApp) {
-                await secondaryApp.delete();
-            }
-            setIsCreatingUser(false);
+            await auth.sendPasswordResetEmail(editingUser.email);
+            setToastMessage({ message: `E-mail enviado para ${editingUser.email}`, type: 'success' });
+        } catch (error) {
+            console.error("Reset error:", error);
+            setToastMessage({ message: "Erro ao enviar e-mail.", type: 'error' });
         }
     };
 
@@ -435,14 +379,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                                 placeholder="Buscar por nome ou e-mail..." 
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 w-full md:w-96"
+                                className="bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 w-full"
                             />
-                            <button 
-                                onClick={() => setShowCreateModal(true)}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
-                            >
-                                <span>+ Criar Conta</span>
-                            </button>
                         </div>
 
                         {isLoading && <div className="text-center py-10 text-gray-500">Carregando usuários...</div>}
@@ -485,6 +423,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
 
                                         {/* Actions */}
                                         <div className="flex flex-wrap items-center gap-2">
+                                            {/* Edit Button */}
+                                            <button
+                                                onClick={() => openEditModal(user)}
+                                                className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 hover:bg-indigo-500/20 transition-colors"
+                                                title="Editar Usuário"
+                                            >
+                                                <EditIcon />
+                                            </button>
+
                                             <div className="flex items-center bg-black/30 rounded-lg p-1 border border-white/5">
                                                 <button 
                                                     onClick={() => handleRenew(user.id, 'month')}
@@ -535,68 +482,70 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                 )}
             </main>
 
-            {/* Create User Modal */}
-            {showCreateModal && (
+            {/* Edit User Modal */}
+            {editingUser && (
                 <div className="fixed inset-0 z-[110] bg-black/80 flex items-center justify-center p-4">
                     <div className="bg-[#1a1a1c] w-full max-w-md rounded-2xl p-6 border border-white/10 shadow-2xl animate-pop">
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold font-serif">Criar Novo Usuário</h2>
-                            <button onClick={() => setShowCreateModal(false)}>
+                            <h2 className="text-xl font-bold font-serif">Editar Usuário</h2>
+                            <button onClick={() => setEditingUser(null)}>
                                 <CloseIcon className="text-gray-400 hover:text-white" />
                             </button>
                         </div>
                         
-                        <form onSubmit={handleCreateUser} className="space-y-4">
-                            <div>
-                                <label className="block text-sm text-gray-400 mb-1">E-mail</label>
-                                <input 
-                                    type="email" 
-                                    required
-                                    value={newUserEmail}
-                                    onChange={e => setNewUserEmail(e.target.value)}
-                                    className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-                                />
+                        <form onSubmit={handleSaveEdit} className="space-y-4">
+                            <div className="p-4 bg-black/20 rounded-xl border border-white/5 space-y-2">
+                                <p className="text-xs text-gray-500 uppercase font-bold">ID do Usuário</p>
+                                <p className="text-xs font-mono text-gray-300 break-all">{editingUser.id}</p>
+                                
+                                <div className="pt-2">
+                                    <p className="text-xs text-gray-500 uppercase font-bold">E-mail Cadastrado</p>
+                                    <p className="text-sm text-white">{editingUser.email || 'N/A'}</p>
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm text-gray-400 mb-1">Senha</label>
-                                <input 
-                                    type="password" 
-                                    required
-                                    value={newUserPassword}
-                                    onChange={e => setNewUserPassword(e.target.value)}
-                                    className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
-                                />
-                            </div>
+
                             <div>
                                 <label className="block text-sm text-gray-400 mb-1">Nome</label>
                                 <input 
                                     type="text" 
                                     required
-                                    value={newUserName}
-                                    onChange={e => setNewUserName(e.target.value)}
+                                    value={editName}
+                                    onChange={e => setEditName(e.target.value)}
                                     className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500"
                                 />
                             </div>
-                            
-                            <div className="flex items-center gap-3 py-2">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={newUserPremium} 
-                                        onChange={e => setNewUserPremium(e.target.checked)}
-                                        className="rounded border-gray-600 bg-black/30 text-indigo-600 focus:ring-indigo-500" 
-                                    />
-                                    <span className="text-sm font-medium text-white">Criar como Premium?</span>
-                                </label>
+
+                            <div className="pt-2 border-t border-white/10 mt-4">
+                                <p className="text-xs text-gray-500 mb-3">Segurança</p>
+                                <button 
+                                    type="button"
+                                    onClick={handleSendPasswordReset}
+                                    className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-xl border border-white/10 transition-colors"
+                                >
+                                    <LockIcon className="text-sm" />
+                                    Enviar E-mail de Redefinição de Senha
+                                </button>
+                                <p className="text-[10px] text-gray-500 mt-2 text-center">
+                                    Isso enviará um link para o usuário criar uma nova senha.
+                                </p>
                             </div>
 
-                            <button 
-                                type="submit" 
-                                disabled={isCreatingUser}
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors mt-4 disabled:opacity-50"
-                            >
-                                {isCreatingUser ? 'Criando...' : 'Criar Conta'}
-                            </button>
+                            <div className="flex gap-3 mt-6">
+                                <button 
+                                    type="button"
+                                    onClick={() => setEditingUser(null)}
+                                    className="flex-1 bg-transparent border border-white/10 hover:bg-white/5 text-white font-bold py-3 rounded-xl transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    disabled={isSavingEdit}
+                                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-50"
+                                >
+                                    {isSavingEdit ? 'Salvando...' : 'Salvar'}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
