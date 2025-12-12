@@ -140,45 +140,63 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
     };
 
     const handleImportLocalQuotes = async () => {
-        if (!window.confirm(`Isso vai importar todas as citações do arquivo local para o banco de dados online (evitando duplicatas). Deseja continuar?`)) return;
+        if (localQuotesDb.length === 0) {
+            setToastMessage({ message: "O arquivo local está vazio.", type: 'error' });
+            return;
+        }
+
+        if (!window.confirm(`Deseja importar ${localQuotesDb.length} citações do arquivo local para o banco online? Isso verificará duplicatas.`)) return;
 
         setIsSyncing(true);
         try {
-            // 1. Get existing texts to prevent duplicates
-            const existingTexts = new Set(contentItems.map(item => item.text.trim().toLowerCase()));
+            // 1. Fetch current DB state to ensure accurate duplicate checking
+            // We do this inside the action to be sure we have the latest data before writing
+            const currentSnapshot = await getDocs(collection(db, "library"));
+            const existingTexts = new Set<string>();
+            currentSnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.text) existingTexts.add(data.text.trim().toLowerCase());
+            });
             
             const batch = writeBatch(db);
             let count = 0;
             const BATCH_LIMIT = 450; // Firestore limit is 500
 
             for (const localQuote of localQuotesDb) {
+                const normalizedText = localQuote.text.trim().toLowerCase();
+                
                 // If text doesn't exist in DB, add it
-                if (!existingTexts.has(localQuote.text.trim().toLowerCase())) {
+                if (!existingTexts.has(normalizedText)) {
                     const docRef = doc(collection(db, "library"));
                     batch.set(docRef, {
                         text: localQuote.text,
                         author: localQuote.author || "Desconhecida",
                         category: localQuote.category || "Inspiração",
                         type: 'quote', // Default to normal quote
-                        imageUrl: ''
+                        imageUrl: '',
+                        createdAt: new Date().toISOString()
                     });
-                    count++;
                     
-                    if (count >= BATCH_LIMIT) break; // Simple batch limit safety
+                    // Add to local set to prevent duplicates within the same batch import
+                    existingTexts.add(normalizedText);
+                    
+                    count++;
+                    if (count >= BATCH_LIMIT) break; 
                 }
             }
 
             if (count > 0) {
                 await batch.commit();
-                setToastMessage({ message: `${count} novas citações importadas!`, type: 'success' });
-                loadContentAndSync(); // Reload list
+                setToastMessage({ message: `Sucesso! ${count} novas citações importadas.`, type: 'success' });
+                // Reload list to show new items
+                loadContentAndSync();
             } else {
-                setToastMessage({ message: "Todas as citações locais já estão no banco.", type: 'success' });
+                setToastMessage({ message: "Nenhuma citação nova encontrada (tudo já está no banco).", type: 'success' });
             }
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error importing quotes:", error);
-            setToastMessage({ message: "Erro na importação.", type: 'error' });
+            setToastMessage({ message: `Erro na importação: ${error.message}`, type: 'error' });
         } finally {
             setIsSyncing(false);
         }
@@ -199,7 +217,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                 setToastMessage({ message: "Conteúdo atualizado!", type: 'success' });
             } else {
                 // Create
-                await addDoc(collection(db, "library"), editingContent);
+                await addDoc(collection(db, "library"), {
+                    ...editingContent,
+                    createdAt: new Date().toISOString()
+                });
                 setToastMessage({ message: "Conteúdo criado!", type: 'success' });
             }
             setEditingContent(null);
@@ -431,15 +452,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, setToastMessage
                                 </div>
                             </div>
                             
-                            <button 
-                                onClick={handleImportLocalQuotes}
-                                disabled={isSyncing}
-                                className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-gray-300 border border-white/10 transition-colors disabled:opacity-50"
-                                title="Importa as citações do arquivo local para o banco de dados para poder editar."
-                            >
-                                {isSyncing ? <CachedIcon className="animate-spin text-sm" /> : <DownloadIcon className="text-sm" />}
-                                {isSyncing ? 'Importando...' : 'Importar Banco Local'}
-                            </button>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={loadContentAndSync}
+                                    disabled={isLoading}
+                                    className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10 text-gray-300"
+                                    title="Recarregar Lista"
+                                >
+                                    <CachedIcon className={`text-lg ${isLoading ? 'animate-spin' : ''}`} />
+                                </button>
+                                <button 
+                                    onClick={handleImportLocalQuotes}
+                                    disabled={isSyncing}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-gray-300 border border-white/10 transition-colors disabled:opacity-50"
+                                    title="Importa as citações do arquivo local para o banco de dados para poder editar."
+                                >
+                                    {isSyncing ? <CachedIcon className="animate-spin text-sm" /> : <DownloadIcon className="text-sm" />}
+                                    {isSyncing ? 'Importando...' : 'Importar Banco Local'}
+                                </button>
+                            </div>
                         </div>
 
                         {/* Filters & Actions */}
